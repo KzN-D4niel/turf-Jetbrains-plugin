@@ -1,0 +1,51 @@
+<idea-plugin>
+    <id>pl.kznd4niel.turf</id>
+    <name>Turf</name>
+    <vendor>KzN-D4niel</vendor>
+
+    <description><![CDATA[
+        Dzieli repozytorium na kod czlowieka i kod AI. Wlasnosc trzymana jest w
+        <code>.turf/ownership.json</code>, ten sam plik czyta serwer MCP, ktory orzeka,
+        czy model ma prawo tknac dana sciezke.<br/><br/>
+        Wtyczka daje strone ludzka: oznaczanie wlasnosci w drzewie projektu, przegladanie
+        wnioskow AI o zmiane (limit 3 linijki) z przyjeciem jednym klikiem oraz wykrywanie
+        zapisow z zewnatrz do plikow, ktore do AI nie naleza.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceImplementation="pl.kznd4niel.turf.TurfService"/>
+        <postStartupActivity implementation="pl.kznd4niel.turf.TurfStartup"/>
+        <projectViewNodeDecorator implementation="pl.kznd4niel.turf.OwnerDecorator"/>
+        <toolWindow id="Turf"
+                    anchor="bottom"
+                    factoryClass="pl.kznd4niel.turf.ui.TurfToolWindowFactory"/>
+        <statusBarWidgetFactory id="Turf.Owner"
+                                implementation="pl.kznd4niel.turf.ui.OwnerWidgetFactory"/>
+        <notificationGroup id="Turf" displayType="BALLOON"/>
+    </extensions>
+
+    <applicationListeners>
+        <listener class="pl.kznd4niel.turf.watch.ViolationWatcher"
+                  topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </applicationListeners>
+
+    <actions>
+        <group id="Turf.Group" text="Turf" popup="true">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            <action id="Turf.MarkMine"
+                    class="pl.kznd4niel.turf.MarkAsMineAction"
+                    text="Oznacz jako moje"
+                    description="Plik staje sie Twoj - AI traci prawo zapisu"/>
+            <action id="Turf.MarkAi"
+                    class="pl.kznd4niel.turf.MarkAsAiAction"
+                    text="Oznacz jako AI"
+                    description="Plik staje sie terytorium AI"/>
+            <action id="Turf.Clear"
+                    class="pl.kznd4niel.turf.ClearOwnerAction"
+                    text="Wyczysc wlasnosc"
+                    description="Plik wraca do stanu niczyj - AI nie moze go tknac"/>
+        </group>
+    </actions>
+</idea-plugin>

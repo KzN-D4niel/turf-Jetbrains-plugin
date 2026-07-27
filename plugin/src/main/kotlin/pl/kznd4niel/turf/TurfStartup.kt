@@ -1,0 +1,11 @@
+package pl.kznd4niel.turf
+
+import com.intellij.openapi.components.service
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.startup.ProjectActivity
+
+class TurfStartup : ProjectActivity {
+    override suspend fun execute(project: Project) {
+        project.service<TurfService>().reload()
+    }
+}
