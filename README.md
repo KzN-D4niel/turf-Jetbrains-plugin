@@ -121,8 +121,10 @@ To repozytorium jest podzielone na kod człowieka i kod AI. Obowiązuje Cię kon
 **Nadawanie własności** — prawy przycisk w drzewie projektu → **Turf**: Oznacz jako moje /
 Oznacz jako AI / Wyczyść. Działa na zaznaczeniu wielu plików i rekurencyjnie na katalogach.
 
-**Drzewo projektu** pokazuje przy pliku `Ty` albo `AI`. Pasek stanu pokazuje właściciela
-otwartego pliku.
+**Drzewo projektu** — pliki AI dostają czerwoną ikonę `AI` w miejsce ikony typu (przy
+klasie Javy zamiast niebieskiego ⓒ). Twoje pliki nie dostają nic: chodzi o to, żeby cudze
+rzucało się w oczy, a nie żeby przy każdej pozycji w drzewie wisiał dopisek. Właściciela
+otwartego pliku — łącznie ze stanem „niczyj" — pokazuje pasek stanu.
 
 **Okno Turf** (dół): zakładka **Wnioski** — lista z powodem i diffem `było` / `ma być`,
 przyciski Przyjmij i Odrzuć (z komentarzem dla AI). Przyjęcie stosuje zmianę jako zwykłą

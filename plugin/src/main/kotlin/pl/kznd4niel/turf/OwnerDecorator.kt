@@ -5,7 +5,13 @@ import com.intellij.ide.projectView.ProjectViewNode
 import com.intellij.ide.projectView.ProjectViewNodeDecorator
 import com.intellij.openapi.components.service
 
-/** Dopisuje w drzewie projektu, czyj jest plik. */
+/**
+ * Oznacza w drzewie projektu pliki nalezace do AI - zamiast ikony typu (niebieskie C
+ * przy klasie) wchodzi czerwone AI.
+ *
+ * Twoje pliki nie dostaja nic. Caly sens jest w tym, zeby cudze rzucalo sie w oczy,
+ * a nie zeby przy kazdej pozycji w drzewie wisial jakis dopisek.
+ */
 class OwnerDecorator : ProjectViewNodeDecorator {
 
     override fun decorate(node: ProjectViewNode<*>, data: PresentationData) {
@@ -14,10 +20,8 @@ class OwnerDecorator : ProjectViewNodeDecorator {
         val project = node.project ?: return
         if (project.isDisposed) return
 
-        when (project.service<TurfService>().ownerOf(file)) {
-            Owner.AI -> data.locationString = "AI"
-            Owner.HUMAN -> data.locationString = "Ty"
-            Owner.NONE -> {}
+        if (project.service<TurfService>().ownerOf(file) == Owner.AI) {
+            data.setIcon(TurfIcons.AI)
         }
     }
 }
