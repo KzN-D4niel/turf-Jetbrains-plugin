@@ -19,7 +19,7 @@ modyfikacją musi wywołać `turf_check`, który zwraca właściciela i twarde z
 ```
 turf_check("src/Main.java")   ->  WŁAŚCICIEL: human      MOŻESZ EDYTOWAĆ: NIE
 turf_check("src/NoweAi.java") ->  nie istnieje  -> rezerwacja jako plik AI, wolno tworzyć
-turf_check("src/Stare.java")  ->  WŁAŚCICIEL: none       MOŻESZ EDYTOWAĆ: NIE
+turf_check("src/Stare.java")  ->  WŁAŚCICIEL: none       MOŻESZ EDYTOWAĆ: NIE (wniosek: tak)
 ```
 
 Cztery narzędzia:
@@ -36,10 +36,12 @@ Cztery narzędzia:
 |---|---|---|
 | `ai` | tak | — |
 | `human` | **nie** | tak, ≤3 linijki |
-| `none` (brak wpisu) | **nie** | **nie** |
+| `none` (brak wpisu) | **nie** | tak, ≤3 linijki |
 
-Brak wpisu to odmowa, nie zgoda. Stary kod jest niczyj do momentu, aż go oznaczysz —
-AI nie może go tknąć ani nawet o niego wnioskować.
+**Brak wpisu traktowany jest jak własność człowieka** — domyślną odpowiedzią jest odmowa
+edycji, ale wniosek przechodzi na tych samych zasadach. Osobna kategoria „niczyj" z
+zakazem wnioskowania tworzyła martwy stan: plik, którego nie da się ani tknąć, ani o
+niego poprosić. Jedna reguła zamiast dwóch.
 
 Jedyne automatyczne nadanie własności: `turf_check` na **nieistniejącą** ścieżkę rezerwuje
 ją dla AI. Rezerwacja bez utworzonego pliku wygasa po 24 h.

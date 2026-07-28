@@ -32,8 +32,9 @@ Zasady bezwzgledne:
    Wiekszej zmiany nie da sie wnioskowac - jesli potrzeba wiecej, napisz to u siebie
    i podepnij sie metoda.
 
-4. Plik niczyj (bez wpisu w manifescie): NIE EDYTUJESZ i NIE WNIOSKUJESZ. Wlasciciel
-   musi go najpierw oznaczyc. Powiedz o tym uzytkownikowi i zajmij sie czyms innym.
+4. Plik niczyj (bez wpisu w manifescie) traktujesz jak plik uzytkownika: nie edytujesz,
+   ale mozesz zlozyc na niego wniosek na tych samych zasadach. Brak wpisu to domyslna
+   odmowa edycji, a nie osobna kategoria z wlasnymi regulami.
 
 5. Nowy plik: turf_check rezerwuje go dla Ciebie w momencie sprawdzenia. Po
    utworzeniu jest Twoj i mozesz w nim pracowac bez pytania.
@@ -108,13 +109,19 @@ Co MOZESZ zrobic:
 
   return `ZASADY - OBOWIAZUJA BEZWZGLEDNIE
 
-Plik nie ma wpisu w manifescie, wiec jest niczyj. Domyslna odpowiedz to odmowa.
+Plik nie ma wpisu w manifescie. Brak wpisu traktujesz jak wlasnosc uzytkownika:
+domyslna odpowiedz to odmowa edycji.
 
-  - NIE EDYTUJESZ go.
-  - NIE skladasz na niego wniosku - wniosek dotyczy tylko plikow uzytkownika.
+  - NIE WOLNO Ci go zmodyfikowac zadnym narzedziem.
+  - Nie omijaj tego przez powloke (sed, Set-Content, przekierowanie, patch, git apply).
   - Nie "przejmujesz" go sam. Wlasnosc nadaje wylacznie uzytkownik w IDE.
 
-Co masz zrobic: powiedziec uzytkownikowi, ze ten plik jest nieoznaczony i ze musi
-zdecydowac, czyj jest, zanim cokolwiek sie w nim wydarzy. Do tego czasu zajmij sie
-reszta zadania.`;
+Co MOZESZ zrobic - dokladnie to samo, co przy pliku uzytkownika:
+
+  1. Zlozyc wniosek: turf_request na maksymalnie ${MAX_REQUEST_LINES} linijki.
+     Po zlozeniu PRZESTAJESZ czekac i robisz cos innego; decyzje sprawdzisz przez
+     turf_status.
+  2. Napisac rozwiazanie u siebie i podpiac sie do jego kodu wywolaniem metody.
+  3. Powiedziec uzytkownikowi, ze plik jest nieoznaczony - moze chciec nadac mu
+     wlasnosc, zeby stan byl jawny.`;
 }

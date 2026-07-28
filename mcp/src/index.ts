@@ -135,13 +135,9 @@ server.registerTool(
         `WNIOSEK ZBEDNY\n\n${r.rel} jest Twoj. Edytuj go normalnie przez Edit albo Write.`
       );
     }
-    if (res.owner === "none") {
-      return text(
-        `ODMOWA\n\n${r.rel} jest niczyj (${res.source}). Wniosek dotyczy wylacznie plikow ` +
-          `uzytkownika.\n\nPowiedz uzytkownikowi, ze ten plik nie ma wlasciciela i musi go ` +
-          `oznaczyc w IDE, zanim cokolwiek sie w nim wydarzy.`
-      );
-    }
+    // Brak wpisu = wlasnosc uzytkownika, wiec wniosek przechodzi tak samo jak na
+    // plik jawnie oznaczony. Osobna kategoria "niczyj" z zakazem wnioskowania tworzyla
+    // martwy stan: plik, ktorego nie da sie ani tknac, ani o niego poprosic.
     if (!fs.existsSync(r.abs)) {
       return text(`ODMOWA\n\n${r.rel} nie istnieje, wiec nie ma czego zmieniac.`);
     }
@@ -190,7 +186,8 @@ server.registerTool(
       `  Twoje (ai):        ${c.ai}`,
       `  Uzytkownika:       ${c.human}`,
       `  Wzorce:            ${m.patterns.length}`,
-      `  Wszystko poza tym jest niczyje - nie edytujesz.`,
+      `  Wszystko poza tym jest bez wpisu, czyli traktowane jak uzytkownika:`,
+      `  nie edytujesz, ale mozesz zlozyc wniosek.`,
       ``,
       `WNIOSKI (${rs.length})`,
     ];

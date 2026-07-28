@@ -74,8 +74,8 @@ check("plik uzytkownika: zakaz edycji", human.includes("MOZESZ EDYTOWAC: NIE"), 
 check("plik uzytkownika: wskazuje wniosek", human.includes("turf_request"));
 
 const niczyj = await call("turf_check", { path: "src/Niczyj.java" });
-check("plik niczyj: zakaz", niczyj.includes("MOZESZ EDYTOWAC: NIE"), niczyj);
-check("plik niczyj: bez furtki wnioskowej", niczyj.includes("NIE skladasz na niego wniosku"));
+check("plik niczyj: zakaz edycji", niczyj.includes("MOZESZ EDYTOWAC: NIE"), niczyj);
+check("plik niczyj: wniosek dozwolony", niczyj.includes("turf_request"), niczyj);
 
 const nowy = await call("turf_check", { path: "src/NowyAi.java" });
 check("nowy plik: zgoda", nowy.includes("MOZESZ EDYTOWAC: TAK"), nowy);
@@ -109,7 +109,8 @@ const naNiczyj = await call("turf_request", {
   reason: "test",
   edits: [{ lineStart: 1, lineEnd: 1, replacement: "x" }],
 });
-check("wniosek na niczyj: odmowa", naNiczyj.startsWith("ODMOWA"), naNiczyj);
+check("wniosek na niczyj: przechodzi jak na plik uzytkownika",
+  naNiczyj.includes("WNIOSEK ZLOZONY"), naNiczyj);
 
 const naSwoj = await call("turf_request", {
   path: "src/NowyAi.java",
@@ -119,7 +120,7 @@ const naSwoj = await call("turf_request", {
 check("wniosek na wlasny plik: zbedny", naSwoj.includes("WNIOSEK ZBEDNY"), naSwoj);
 
 const stan = await call("turf_status");
-check("status liczy wnioski", stan.includes("WNIOSKI (1)"), stan);
+check("status liczy wnioski", stan.includes("WNIOSKI (2)"), stan);
 check("status liczy wlasnosc", stan.includes("Uzytkownika:       1"), stan);
 
 const zapisany = JSON.parse(
