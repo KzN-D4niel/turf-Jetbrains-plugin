@@ -7,25 +7,26 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
 import com.intellij.openapi.wm.WindowManager
 
-/** Przelacza, na czym skupia sie drzewo: oba -> AI -> Ty -> oba. */
+/** Pokazuje albo ukrywa czerwone ikony przy plikach AI. */
 class ToggleViewAction : AnAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = e.project != null
+        val project = e.project
+        e.presentation.isEnabled = project != null
+        if (project != null && !project.isDisposed) {
+            e.presentation.text =
+                if (project.service<TurfService>().showAiIcons) "Turf: Ukryj ikony AI"
+                else "Turf: Pokaz ikony AI"
+        }
     }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val mode = project.service<TurfService>().cycleViewMode()
+        val widoczne = project.service<TurfService>().toggleAiIcons()
         ProjectView.getInstance(project).refresh()
-
-        val opis = when (mode) {
-            ViewMode.BOTH -> "oba terytoria — wyszarzone tylko nieprzypisane"
-            ViewMode.AI -> "tylko AI — reszta wyszarzona"
-            ViewMode.HUMAN -> "tylko Twoje — reszta wyszarzona"
-        }
-        WindowManager.getInstance().getStatusBar(project)?.info = "Turf: $opis"
+        WindowManager.getInstance().getStatusBar(project)?.info =
+            if (widoczne) "Turf: ikony AI widoczne" else "Turf: ikony AI ukryte"
     }
 }

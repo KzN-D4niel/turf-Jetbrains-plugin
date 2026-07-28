@@ -1,20 +1,5 @@
 package pl.kznd4niel.turf
 
-/**
- * Na czym skupia sie drzewo projektu. Przelaczane skrotem, trzymane na czas sesji.
- *
- * Wyszarzenie to nie to samo co ukrycie - plik dalej jest na swoim miejscu w drzewie,
- * wiec nie gubisz orientacji w strukturze, a mimo to od razu widac, co nalezy do
- * drugiej strony.
- */
-enum class ViewMode(val label: String) {
-    BOTH("oba"),
-    AI("AI"),
-    HUMAN("Ty");
-
-    fun next(): ViewMode = entries[(ordinal + 1) % entries.size]
-}
-
 enum class Owner(val id: String, val label: String) {
     HUMAN("human", "Ty"),
     AI("ai", "AI"),

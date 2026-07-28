@@ -10,7 +10,6 @@ import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
 import pl.kznd4niel.turf.TurfService
 import pl.kznd4niel.turf.Owner
-import pl.kznd4niel.turf.ViewMode
 import java.awt.Component
 import java.awt.event.MouseEvent
 import com.intellij.util.Consumer
@@ -75,9 +74,8 @@ class OwnerWidget(private val project: Project) :
             Owner.NONE -> "niczyj"
             null -> "—"
         }
-        val tryb = if (project.isDisposed) null else project.service<TurfService>().viewMode
-        return if (tryb == null || tryb == ViewMode.BOTH) "Turf: $czyj"
-        else "Turf: $czyj  [widok: ${tryb.label}]"
+        val ukryte = !project.isDisposed && !project.service<TurfService>().showAiIcons
+        return if (ukryte) "Turf: $czyj  [ikony AI ukryte]" else "Turf: $czyj"
     }
 
     override fun getAlignment(): Float = Component.CENTER_ALIGNMENT

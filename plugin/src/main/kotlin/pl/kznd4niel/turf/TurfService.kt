@@ -37,14 +37,15 @@ class TurfService(private val project: Project) {
 
     private val listeners = CopyOnWriteArrayList<Runnable>()
 
+    /** Czy drzewo pokazuje czerwone ikony przy plikach AI. Przelaczane skrotem. */
     @Volatile
-    var viewMode: ViewMode = ViewMode.BOTH
+    var showAiIcons: Boolean = true
         private set
 
-    fun cycleViewMode(): ViewMode {
-        viewMode = viewMode.next()
+    fun toggleAiIcons(): Boolean {
+        showAiIcons = !showAiIcons
         fireChanged()
-        return viewMode
+        return showAiIcons
     }
 
     val violations: List<Violation> get() = violationList.toList()

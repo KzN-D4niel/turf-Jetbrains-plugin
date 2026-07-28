@@ -130,10 +130,11 @@ paletą, więc nie odstaje od reszty drzewa. Jest osobny wariant na ciemny motyw
 Pliki **nieprzypisane są wyszarzone**. Twoje nie dostają nic — brak dekoracji znaczy, że
 wszystko jest jak być powinno.
 
-**`Ctrl+Alt+Shift+G`** przełącza, na czym drzewo się skupia: oba → tylko AI → tylko Twoje.
-Druga strona jest wygaszana, nie ukrywana, więc plik zostaje na swoim miejscu i nie gubisz
-orientacji w strukturze. Skrót zmienisz w Settings → Keymap, szukając „Turf". Aktualny
-tryb i właściciela otwartego pliku — łącznie ze stanem „niczyj" — widać na pasku stanu.
+**`Ctrl+Shift+G`** ukrywa i przywraca czerwone ikony AI — jednym klawiszem patrzysz na
+drzewo bez tego oznaczenia, drugim wracasz. Wyszarzenie nieprzypisanych zostaje niezależnie
+od przełącznika: to nie jest oznaczenie AI, tylko sygnał, że plik czeka na Twoją decyzję.
+Skrót zmienisz w Settings → Keymap, szukając „Turf". Stan przełącznika i właściciela
+otwartego pliku — łącznie ze stanem „niczyj" — widać na pasku stanu.
 
 **Okno Turf** (dół): zakładka **Wnioski** — lista z powodem i diffem `było` / `ma być`,
 przyciski Przyjmij i Odrzuć (z komentarzem dla AI). Przyjęcie stosuje zmianę jako zwykłą

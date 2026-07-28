@@ -34,10 +34,10 @@
     <actions>
         <action id="Turf.ToggleView"
                 class="pl.kznd4niel.turf.ToggleViewAction"
-                text="Turf: Przelacz widok AI / Ty"
-                description="Cykl: oba terytoria -> tylko AI -> tylko Twoje">
+                text="Turf: Ukryj / pokaz ikony AI"
+                description="Przelacza widocznosc czerwonych ikon przy plikach AI">
             <add-to-group group-id="ViewMenu" anchor="last"/>
-            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift G"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift G"/>
         </action>
 
         <group id="Turf.Group" text="Turf" popup="true">
