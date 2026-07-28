@@ -37,6 +37,16 @@ class TurfService(private val project: Project) {
 
     private val listeners = CopyOnWriteArrayList<Runnable>()
 
+    @Volatile
+    var viewMode: ViewMode = ViewMode.BOTH
+        private set
+
+    fun cycleViewMode(): ViewMode {
+        viewMode = viewMode.next()
+        fireChanged()
+        return viewMode
+    }
+
     val violations: List<Violation> get() = violationList.toList()
 
     fun addListener(r: Runnable) = listeners.add(r)

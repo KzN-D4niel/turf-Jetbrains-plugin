@@ -4,15 +4,23 @@ import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.projectView.ProjectViewNode
 import com.intellij.ide.projectView.ProjectViewNodeDecorator
 import com.intellij.openapi.components.service
+import com.intellij.ui.JBColor
 
 /**
- * Oznacza w drzewie projektu pliki nalezace do AI - zamiast ikony typu (niebieskie C
- * przy klasie) wchodzi czerwone AI.
+ * Znakuje drzewo projektu wedlug wlasnosci.
  *
- * Twoje pliki nie dostaja nic. Caly sens jest w tym, zeby cudze rzucalo sie w oczy,
- * a nie zeby przy kazdej pozycji w drzewie wisial jakis dopisek.
+ * Pliki AI dostaja czerwona ikone w miejsce ikony typu. Nieprzypisane sa wyszarzone -
+ * to stan, w ktorym AI nie ma prawa ani pisac, ani wnioskowac, wiec ma byc widoczny,
+ * ale nie ma krzyczec. Twoje pliki wygladaja normalnie: brak dekoracji znaczy, ze
+ * wszystko jest jak byc powinno.
+ *
+ * Tryb widoku (skrot z keymapy) decyduje, ktora strona jest wygaszona.
  */
 class OwnerDecorator : ProjectViewNodeDecorator {
+
+    private companion object {
+        val DIM: JBColor = JBColor(0x9AA0A6, 0x6E7681)
+    }
 
     override fun decorate(node: ProjectViewNode<*>, data: PresentationData) {
         val file = node.virtualFile ?: return
@@ -20,8 +28,16 @@ class OwnerDecorator : ProjectViewNodeDecorator {
         val project = node.project ?: return
         if (project.isDisposed) return
 
-        if (project.service<TurfService>().ownerOf(file) == Owner.AI) {
-            data.setIcon(TurfIcons.AI)
+        val svc = project.service<TurfService>()
+        val owner = svc.ownerOf(file)
+
+        if (owner == Owner.AI) data.setIcon(TurfIcons.AI)
+
+        val dim = when (svc.viewMode) {
+            ViewMode.BOTH -> owner == Owner.NONE
+            ViewMode.AI -> owner != Owner.AI
+            ViewMode.HUMAN -> owner != Owner.HUMAN
         }
+        if (dim) data.forcedTextForeground = DIM
     }
 }

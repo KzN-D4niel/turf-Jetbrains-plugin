@@ -32,6 +32,14 @@
     </applicationListeners>
 
     <actions>
+        <action id="Turf.ToggleView"
+                class="pl.kznd4niel.turf.ToggleViewAction"
+                text="Turf: Przelacz widok AI / Ty"
+                description="Cykl: oba terytoria -> tylko AI -> tylko Twoje">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift G"/>
+        </action>
+
         <group id="Turf.Group" text="Turf" popup="true">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
             <action id="Turf.MarkMine"
