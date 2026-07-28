@@ -115,7 +115,8 @@ To repozytorium jest podzielone na kod człowieka i kod AI. Obowiązuje Cię kon
 - Werdykt "MOŻESZ EDYTOWAĆ: NIE" jest wiążący. Nie omijaj go powłoką ani żadną inną drogą.
 - Plik użytkownika: możesz złożyć `turf_request` na maksymalnie 3 linijki i idziesz dalej,
   nie czekasz na decyzję.
-- Plik bez właściciela: nie edytujesz i nie wnioskujesz. Powiedz o tym użytkownikowi.
+- Plik bez wpisu traktuj jak plik użytkownika: nie edytujesz, ale możesz wnioskować
+  na tych samych zasadach.
 ```
 
 ## Używanie
