@@ -121,10 +121,19 @@ To repozytorium jest podzielone na kod człowieka i kod AI. Obowiązuje Cię kon
 **Nadawanie własności** — prawy przycisk w drzewie projektu → **Turf**: Oznacz jako moje /
 Oznacz jako AI / Wyczyść. Działa na zaznaczeniu wielu plików i rekurencyjnie na katalogach.
 
-**Drzewo projektu** — pliki AI dostają czerwoną ikonę `AI` w miejsce ikony typu (przy
-klasie Javy zamiast niebieskiego ⓒ). Twoje pliki nie dostają nic: chodzi o to, żeby cudze
-rzucało się w oczy, a nie żeby przy każdej pozycji w drzewie wisiał dopisek. Właściciela
-otwartego pliku — łącznie ze stanem „niczyj" — pokazuje pasek stanu.
+**Drzewo projektu** — pliki AI dostają czerwoną ikonę w miejsce ikony typu (przy klasie
+Javy zamiast niebieskiego ⓒ). Ikona jest zbudowana dokładnie tak jak stockowe
+`expui/nodes/*.svg`: koło `r=6.5` z bladą poświatą i obwódką w kolorze akcentu, litery
+tej samej wysokości i grubości co w `class`/`enum`/`interface` — różni się wyłącznie
+paletą, więc nie odstaje od reszty drzewa. Jest osobny wariant na ciemny motyw.
+
+Pliki **nieprzypisane są wyszarzone**. Twoje nie dostają nic — brak dekoracji znaczy, że
+wszystko jest jak być powinno.
+
+**`Ctrl+Alt+Shift+G`** przełącza, na czym drzewo się skupia: oba → tylko AI → tylko Twoje.
+Druga strona jest wygaszana, nie ukrywana, więc plik zostaje na swoim miejscu i nie gubisz
+orientacji w strukturze. Skrót zmienisz w Settings → Keymap, szukając „Turf". Aktualny
+tryb i właściciela otwartego pliku — łącznie ze stanem „niczyj" — widać na pasku stanu.
 
 **Okno Turf** (dół): zakładka **Wnioski** — lista z powodem i diffem `było` / `ma być`,
 przyciski Przyjmij i Odrzuć (z komentarzem dla AI). Przyjęcie stosuje zmianę jako zwykłą
