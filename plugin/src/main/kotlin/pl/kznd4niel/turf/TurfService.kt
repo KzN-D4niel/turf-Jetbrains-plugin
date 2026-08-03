@@ -27,6 +27,14 @@ class TurfService(private val project: Project) {
     @Volatile
     private var lookup: Map<String, Owner> = emptyMap()
 
+    /** To samo dla katalogow - czytane wylacznie w trybie pakietowym. */
+    @Volatile
+    private var dirLookup: Map<String, Owner> = emptyMap()
+
+    @Volatile
+    var mode: TurfMode = TurfMode.FILE
+        private set
+
     @Volatile
     private var compiledPatterns: List<Pair<Regex, Owner>> = emptyList()
 
@@ -93,10 +101,21 @@ class TurfService(private val project: Project) {
         } else ManifestData()
 
         manifest = data
+        mode = TurfMode.from(data.mode)
         lookup = data.files.entries.associate { (k, v) -> k.lowercase() to Owner.from(v.owner) }
+        dirLookup = data.dirs.entries.associate { (k, v) -> k.lowercase() to Owner.from(v.owner) }
         compiledPatterns = data.patterns.map { globToRegex(it.glob) to Owner.from(it.owner) }
         pendingRequests = readRequests()
         fireChanged()
+    }
+
+    /** Tryb wybiera uzytkownik, ale zapisany jest w manifescie - MCP musi orzekac tak samo. */
+    fun setMode(next: TurfMode) {
+        if (mode == next) return
+        val m = manifest
+        m.mode = next.id
+        writeManifest(m)
+        reload()
     }
 
     private fun readRequests(): List<EditRequest> {
@@ -119,46 +138,106 @@ class TurfService(private val project: Project) {
     fun requests(): List<EditRequest> = pendingRequests
 
     fun ownerOf(file: VirtualFile): Owner {
-        if (file.isDirectory) return Owner.NONE
         val rel = relOf(file) ?: return Owner.NONE
+        if (file.isDirectory) {
+            // Katalog ma wlasciciela tylko wtedy, kiedy w ogole jest jednostka wlasnosci.
+            return if (mode == TurfMode.PACKAGE) nearestDir(rel) ?: Owner.NONE else Owner.NONE
+        }
         return ownerOfRel(rel)
     }
 
     fun ownerOfRel(rel: String): Owner {
-        lookup[rel.lowercase()]?.let { return it }
+        val direct = when (mode) {
+            TurfMode.PACKAGE -> nearestDir(parentDir(rel))
+            TurfMode.FILE -> lookup[rel.lowercase()]
+        }
+        direct?.let { return it }
         // Ostatni pasujacy wzorzec wygrywa - tak samo jak po stronie MCP.
         var hit: Owner? = null
         for ((re, owner) in compiledPatterns) if (re.matches(rel)) hit = owner
         return hit ?: Owner.NONE
     }
 
+    /** Najblizszy oznaczony katalog w gore. Zagniezdzony pakiet przykrywa nadrzedny. */
+    private fun nearestDir(dir: String): Owner? {
+        var d = dir
+        while (true) {
+            dirLookup[d.lowercase()]?.let { return it }
+            if (d.isEmpty()) return null
+            d = parentDir(d)
+        }
+    }
+
+    /** Katalog, ktoremu w trybie pakietowym nadaje sie wlasnosc po kliknieciu w ten plik. */
+    fun packageOf(file: VirtualFile): String? {
+        val rel = relOf(file) ?: return null
+        return if (file.isDirectory) rel else parentDir(rel)
+    }
+
     // ---------- zapis wlasnosci ----------
 
     fun setOwner(files: Collection<VirtualFile>, owner: Owner) {
-        val rels = ArrayList<String>()
-        files.forEach { collectRels(it, rels) }
-        if (rels.isEmpty()) return
-
         val m = manifest
-        for (rel in rels) {
-            // Klucz moze juz istniec w innej wielkosci liter - inaczej zrobilyby sie duplikaty.
-            val existing = m.files.keys.firstOrNull { it.equals(rel, ignoreCase = true) }
-            if (owner == Owner.NONE) {
-                if (existing != null) m.files.remove(existing)
-            } else {
-                val e = FileEntry()
-                e.owner = owner.id
-                e.since = Instant.now().toString()
-                e.by = "IDE"
-                if (existing != null) m.files.remove(existing)
-                m.files[rel] = e
-            }
+        val target = if (mode == TurfMode.PACKAGE) m.dirs else m.files
+
+        val keys = LinkedHashSet<String>()
+        if (mode == TurfMode.PACKAGE) {
+            // Jeden wpis na pakiet, bez schodzenia w glab: po to sa pakiety, zeby caly
+            // podkatalog szedl jednym oznaczeniem. Zagniezdzony wpis zostaje i dalej
+            // przykrywa nadrzedny, bo wygrywa najblizszy.
+            files.forEach { f -> packageOf(f)?.let(keys::add) }
+        } else {
+            files.forEach { f -> collectRels(f, keys) }
         }
+        if (keys.isEmpty()) return
+
+        keys.forEach { putEntry(target, it, owner, "IDE") }
         writeManifest(m)
         reload()
     }
 
-    private fun collectRels(file: VirtualFile, out: MutableList<String>) {
+    /**
+     * Plik utworzony w IDE jest Twoj od pierwszej sekundy - bez tego nowa klasa ladowala
+     * jako "niczyj", czyli wygladala tak samo jak plik czekajacy na decyzje.
+     *
+     * Dziala tylko w trybie plikowym: w pakietowym wpis pliku i tak nie bylby czytany,
+     * a plik dziedziczy wlasnosc pakietu, w ktorym powstal.
+     */
+    fun claimCreated(rels: Collection<String>) {
+        if (mode != TurfMode.FILE) return
+        val m = manifest
+        var changed = false
+        for (rel in rels) {
+            if (isIgnored(rel)) continue
+            // Istniejacego wpisu nie ruszamy. Dotyczy to zwlaszcza rezerwacji zrobionej
+            // przez turf_check: AI zaklepala te sciezke i ma prawo ja utworzyc.
+            if (m.files.keys.any { it.equals(rel, ignoreCase = true) }) continue
+            putEntry(m.files, rel, Owner.HUMAN, "IDE (nowy plik)")
+            changed = true
+        }
+        if (!changed) return
+        writeManifest(m)
+        reload()
+    }
+
+    private fun putEntry(
+        map: MutableMap<String, FileEntry>,
+        key: String,
+        owner: Owner,
+        by: String,
+    ) {
+        // Klucz moze juz istniec w innej wielkosci liter - inaczej zrobilyby sie duplikaty.
+        val existing = map.keys.firstOrNull { it.equals(key, ignoreCase = true) }
+        if (existing != null) map.remove(existing)
+        if (owner == Owner.NONE) return
+        val e = FileEntry()
+        e.owner = owner.id
+        e.since = Instant.now().toString()
+        e.by = by
+        map[key] = e
+    }
+
+    private fun collectRels(file: VirtualFile, out: MutableCollection<String>) {
         if (file.isDirectory) {
             file.children?.forEach { collectRels(it, out) }
         } else {
@@ -256,5 +335,21 @@ class TurfService(private val project: Project) {
     fun isManifestPath(path: String): Boolean {
         val rel = relOf(path) ?: return false
         return rel.startsWith(".turf/")
+    }
+
+    /**
+     * Sciezki, ktorych nikt nie oznacza recznie i ktore nie maja trafiac do manifestu.
+     * Bez tego samo otwarcie projektu zaklepywaloby polowe `.idea` jako Twoja wlasnosc.
+     */
+    fun isIgnored(rel: String): Boolean {
+        val r = rel.lowercase()
+        return IGNORED.any { r.startsWith(it) || r.contains("/$it") }
+    }
+
+    private companion object {
+        val IGNORED = listOf(
+            ".turf/", ".git/", ".idea/", ".gradle/",
+            "build/", "out/", "target/", "node_modules/",
+        )
     }
 }

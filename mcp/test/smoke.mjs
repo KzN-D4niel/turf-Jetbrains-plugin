@@ -135,6 +135,94 @@ check(
   JSON.stringify(zapisany.edits[0].oldText)
 );
 
+// ------------------------------------------------------------ tryb pakietowy
+// Serwer czyta manifest przy kazdym wywolaniu, wiec wystarczy go podmienic na dysku.
+
+fs.mkdirSync(path.join(root, "src/human/util"), { recursive: true });
+fs.mkdirSync(path.join(root, "src/ai"), { recursive: true });
+fs.mkdirSync(path.join(root, "src/wolne"), { recursive: true });
+fs.writeFileSync(path.join(root, "src/human/A.java"), "class A {}\n");
+fs.writeFileSync(path.join(root, "src/human/util/U.java"), "class U {}\n");
+fs.writeFileSync(path.join(root, "src/ai/B.java"), "class B {}\n");
+fs.writeFileSync(path.join(root, "src/wolne/C.java"), "class C {}\n");
+// Wpis pliku mowiacy cos innego niz pakiet - w trybie pakietowym ma byc niewidzialny.
+fs.writeFileSync(path.join(root, "src/human/Pinned.java"), "class Pinned {}\n");
+
+const teraz = new Date().toISOString();
+const wpis = (owner) => ({ owner, since: teraz, by: "test" });
+fs.writeFileSync(
+  path.join(root, ".turf", "ownership.json"),
+  JSON.stringify(
+    {
+      version: 1,
+      mode: "package",
+      files: { "src/human/Pinned.java": wpis("ai") },
+      dirs: {
+        "src/human": wpis("human"),
+        "src/human/util": wpis("ai"),
+        "src/ai": wpis("ai"),
+      },
+      patterns: [],
+    },
+    null,
+    2
+  )
+);
+
+const kontraktPkg = await call("turf_rules");
+check("pakiety: kontrakt mowi o trybie", kontraktPkg.includes("TRYB: PAKIETY"), kontraktPkg);
+check("pakiety: kontrakt zabrania rezerwacji", kontraktPkg.includes("NIE MA rezerwacji"));
+
+const pkgHuman = await call("turf_check", { path: "src/human/A.java" });
+check("pakiety: plik w pakiecie uzytkownika zablokowany",
+  pkgHuman.includes("MOZESZ EDYTOWAC: NIE"), pkgHuman);
+check("pakiety: werdykt wskazuje pakiet",
+  pkgHuman.includes("pakiet src/human"), pkgHuman);
+
+const pkgAi = await call("turf_check", { path: "src/ai/B.java" });
+check("pakiety: plik w pakiecie AI dozwolony",
+  pkgAi.includes("MOZESZ EDYTOWAC: TAK"), pkgAi);
+
+const pkgWolne = await call("turf_check", { path: "src/wolne/C.java" });
+check("pakiety: pakiet bez wlasciciela zablokowany",
+  pkgWolne.includes("MOZESZ EDYTOWAC: NIE"), pkgWolne);
+
+const pkgZagniezdzony = await call("turf_check", { path: "src/human/util/U.java" });
+check("pakiety: blizszy pakiet bije dalszy",
+  pkgZagniezdzony.includes("MOZESZ EDYTOWAC: TAK") &&
+    pkgZagniezdzony.includes("pakiet src/human/util"),
+  pkgZagniezdzony
+);
+
+const pkgPinned = await call("turf_check", { path: "src/human/Pinned.java" });
+check("pakiety: wpis pliku jest ignorowany",
+  pkgPinned.includes("MOZESZ EDYTOWAC: NIE"), pkgPinned);
+
+const pkgNowyUAi = await call("turf_check", { path: "src/ai/Nowy.java" });
+check("pakiety: nowy plik w swoim pakiecie dozwolony",
+  pkgNowyUAi.includes("MOZESZ EDYTOWAC: TAK"), pkgNowyUAi);
+
+const pkgNowyWolny = await call("turf_check", { path: "src/wolne/Nowy.java" });
+check("pakiety: nowy plik w cudzym pakiecie zabroniony",
+  pkgNowyWolny.includes("MOZESZ EDYTOWAC: NIE") &&
+    pkgNowyWolny.includes("NIE WOLNO Ci go utworzyc"),
+  pkgNowyWolny
+);
+
+const poPkg = JSON.parse(fs.readFileSync(path.join(root, ".turf/ownership.json"), "utf8"));
+check(
+  "pakiety: zaden turf_check nie dopisal rezerwacji",
+  Object.keys(poPkg.files).length === 1 && poPkg.files["src/human/Pinned.java"],
+  JSON.stringify(Object.keys(poPkg.files))
+);
+
+const stanPkg = await call("turf_status");
+check("pakiety: status podaje tryb", stanPkg.includes("TRYB: pakiety"), stanPkg);
+check("pakiety: status liczy pakiety",
+  stanPkg.includes("Twoje (ai):        2") && stanPkg.includes("Uzytkownika:       1"),
+  stanPkg
+);
+
 await client.close();
 fs.rmSync(root, { recursive: true, force: true });
 

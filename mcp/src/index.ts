@@ -14,7 +14,13 @@ import {
   toRel,
   counts,
 } from "./ownership.js";
-import { contract, verdictText, MAX_REQUEST_LINES, type Verdict } from "./rules.js";
+import {
+  contract,
+  modeLabel,
+  verdictText,
+  MAX_REQUEST_LINES,
+  type Verdict,
+} from "./rules.js";
 import * as requests from "./requests.js";
 
 const ROOT = findRoot(process.cwd());
@@ -38,11 +44,12 @@ server.registerTool(
   {
     title: "Turf: kontrakt",
     description:
-      "Zwraca pelny kontrakt podzialu repozytorium na kod czlowieka i kod AI. " +
+      "Zwraca pelny kontrakt podzialu repozytorium na kod czlowieka i kod AI, " +
+      "wraz z zasadami trybu wlasnosci ustawionego w tym projekcie. " +
       "Wywolaj raz na poczatku sesji, zanim tkniesz jakikolwiek plik.",
     inputSchema: {},
   },
-  async () => text(contract())
+  async () => text(contract(load(ROOT).mode))
 );
 
 server.registerTool(
@@ -52,7 +59,8 @@ server.registerTool(
     description:
       "OBOWIAZKOWE przed kazda modyfikacja pliku. Zwraca wlasciciela i twarde zasady " +
       "dla tej sciezki. Samo w sobie NIC nie zapisuje w pliku - to orzeczenie, nie kanal " +
-      "zapisu. Dla nieistniejacej sciezki rezerwuje ja jako plik AI.",
+      "zapisu. W trybie plikowym nieistniejaca sciezka jest rezerwowana jako plik AI; " +
+      "w trybie pakietowym nowy plik dziedziczy wlasnosc pakietu i rezerwacji nie ma.",
     inputSchema: {
       path: z
         .string()
@@ -77,7 +85,10 @@ server.registerTool(
     let owner = res.owner;
     let source = res.source;
 
-    if (!exists && owner === "none") {
+    // Rezerwacja nowej sciezki istnieje tylko w trybie plikowym. W trybie pakietowym
+    // wlasnosc idzie z katalogu, wiec wpis pliku i tak nie bylby czytany - AI tworzy
+    // pliki wylacznie wewnatrz pakietow, ktore juz do niej naleza.
+    if (!exists && owner === "none" && m.mode === "file") {
       setOwner(ROOT, r.rel, "ai", "turf_check (rezerwacja nowego pliku)", true);
       reservedForAi = true;
       owner = "ai";
@@ -87,6 +98,7 @@ server.registerTool(
     const v: Verdict = {
       rel: r.rel,
       exists,
+      mode: m.mode,
       owner,
       source,
       canEdit: owner === "ai",
@@ -179,15 +191,21 @@ server.registerTool(
     const c = counts(m);
     const rs = requests.list(ROOT);
 
+    const jednostka = m.mode === "package" ? "pakiety" : "pliki";
     const lines: string[] = [
       `REPOZYTORIUM: ${ROOT}`,
+      `TRYB: ${modeLabel(m.mode)}`,
       ``,
-      `WLASNOSC`,
+      `WLASNOSC (liczone ${jednostka})`,
       `  Twoje (ai):        ${c.ai}`,
       `  Uzytkownika:       ${c.human}`,
       `  Wzorce:            ${m.patterns.length}`,
-      `  Wszystko poza tym jest bez wpisu, czyli traktowane jak uzytkownika:`,
-      `  nie edytujesz, ale mozesz zlozyc wniosek.`,
+      m.mode === "package"
+        ? `  Plik dziedziczy wlasnosc z najblizszego pakietu w gore. Co nie lezy pod`
+        : `  Wszystko poza tym jest bez wpisu, czyli traktowane jak uzytkownika:`,
+      m.mode === "package"
+        ? `  zadnym oznaczonym pakietem, jest traktowane jak uzytkownika.`
+        : `  nie edytujesz, ale mozesz zlozyc wniosek.`,
       ``,
       `WNIOSKI (${rs.length})`,
     ];

@@ -8,6 +8,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
+import pl.kznd4niel.turf.TurfMode
 import pl.kznd4niel.turf.TurfService
 import pl.kznd4niel.turf.Owner
 import java.awt.Component
@@ -67,6 +68,9 @@ class OwnerWidget(private val project: Project) :
         return project.service<TurfService>().ownerOf(file)
     }
 
+    private fun mode(): TurfMode? =
+        if (project.isDisposed) null else project.service<TurfService>().mode
+
     override fun getText(): String {
         val czyj = when (current()) {
             Owner.AI -> "AI"
@@ -74,17 +78,26 @@ class OwnerWidget(private val project: Project) :
             Owner.NONE -> "niczyj"
             null -> "—"
         }
+        val tryb = mode()?.let { " · ${it.label}" } ?: ""
         val ukryte = !project.isDisposed && !project.service<TurfService>().showAiIcons
-        return if (ukryte) "Turf: $czyj  [ikony AI ukryte]" else "Turf: $czyj"
+        return if (ukryte) "Turf: $czyj$tryb  [ikony AI ukryte]" else "Turf: $czyj$tryb"
     }
 
     override fun getAlignment(): Float = Component.CENTER_ALIGNMENT
 
-    override fun getTooltipText(): String = when (current()) {
-        Owner.AI -> "Plik nalezy do AI. Ty mozesz go edytowac, ale to jej terytorium."
-        Owner.HUMAN -> "Twoj plik. AI nie ma prawa zapisu, moze tylko zlozyc wniosek na 3 linijki."
-        Owner.NONE -> "Plik nieoznaczony. AI nie ma prawa zapisu ani wniosku - oznacz go."
-        null -> "Brak otwartego pliku."
+    override fun getTooltipText(): String {
+        val skad = if (mode() == TurfMode.PACKAGE) {
+            "Tryb pakietowy: wlasnosc idzie z najblizszego pakietu, nie z pliku."
+        } else {
+            "Tryb plikowy: kazdy plik ma swojego wlasciciela."
+        }
+        val czyj = when (current()) {
+            Owner.AI -> "Plik nalezy do AI. Ty mozesz go edytowac, ale to jej terytorium."
+            Owner.HUMAN -> "Twoj plik. AI nie ma prawa zapisu, moze tylko zlozyc wniosek na 3 linijki."
+            Owner.NONE -> "Plik nieoznaczony. AI nie ma prawa zapisu ani wniosku - oznacz go."
+            null -> "Brak otwartego pliku."
+        }
+        return "$czyj\n$skad"
     }
 
     override fun getClickConsumer(): Consumer<MouseEvent>? = null

@@ -9,7 +9,10 @@
         czy model ma prawo tknac dana sciezke.<br/><br/>
         Wtyczka daje strone ludzka: oznaczanie wlasnosci w drzewie projektu, przegladanie
         wnioskow AI o zmiane (limit 3 linijki) z przyjeciem jednym klikiem oraz wykrywanie
-        zapisow z zewnatrz do plikow, ktore do AI nie naleza.
+        zapisow z zewnatrz do plikow, ktore do AI nie naleza.<br/><br/>
+        Granulacja jest do wyboru per projekt: <b>pliki</b> - wlasnosc na pojedynczy plik,
+        albo <b>pakiety</b> - wlasnosc na katalog, ktora pliki w srodku dziedzicza.
+        Plik utworzony w IDE od razu staje sie Twoj.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -54,6 +57,18 @@
                     class="pl.kznd4niel.turf.ClearOwnerAction"
                     text="Wyczysc wlasnosc"
                     description="Plik wraca do stanu niczyj - AI nie moze go tknac"/>
+
+            <separator/>
+            <group id="Turf.ModeGroup" text="Tryb wlasnosci" popup="true">
+                <action id="Turf.Mode.File"
+                        class="pl.kznd4niel.turf.ModeFileAction"
+                        text="Pliki"
+                        description="Wlasnosc nadaje sie pojedynczym plikom"/>
+                <action id="Turf.Mode.Package"
+                        class="pl.kznd4niel.turf.ModePackageAction"
+                        text="Pakiety"
+                        description="Wlasnosc nadaje sie katalogom, pliki dziedzicza ja z pakietu"/>
+            </group>
         </group>
     </actions>
 </idea-plugin>

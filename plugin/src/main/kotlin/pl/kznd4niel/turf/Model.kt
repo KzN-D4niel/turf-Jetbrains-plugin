@@ -10,6 +10,26 @@ enum class Owner(val id: String, val label: String) {
     }
 }
 
+/**
+ * Granulacja wlasnosci, wybierana per projekt i trzymana w manifescie, zeby serwer MCP
+ * orzekal dokladnie tak samo jak drzewo projektu.
+ *
+ *   FILE    - wlasnosc nadaje sie plikowi; czytane jest `files`.
+ *   PACKAGE - wlasnosc nadaje sie katalogowi, plik dziedziczy ja z najblizszego
+ *             katalogu w gore; czytane jest `dirs`.
+ *
+ * Tryby sa rozlaczne. Nieaktywna warstwa zostaje na dysku nietknieta, wiec powrot do
+ * poprzedniego trybu przywraca to, co bylo, zamiast mieszac obie granulacje.
+ */
+enum class TurfMode(val id: String, val label: String) {
+    FILE("file", "pliki"),
+    PACKAGE("package", "pakiety");
+
+    companion object {
+        fun from(id: String?): TurfMode = entries.firstOrNull { it.id == id } ?: FILE
+    }
+}
+
 class FileEntry {
     @JvmField var owner: String = "none"
     @JvmField var since: String = ""
@@ -24,7 +44,11 @@ class PatternEntry {
 
 class ManifestData {
     @JvmField var version: Int = 1
+    /** Brak pola = manifest sprzed trybow, czyli tryb plikowy. */
+    @JvmField var mode: String? = null
     @JvmField var files: MutableMap<String, FileEntry> = LinkedHashMap()
+    /** Klucz to sciezka katalogu wzgledem korzenia; "" znaczy cale repozytorium. */
+    @JvmField var dirs: MutableMap<String, FileEntry> = LinkedHashMap()
     @JvmField var patterns: MutableList<PatternEntry> = ArrayList()
 }
 
@@ -55,6 +79,12 @@ data class Violation(
     val owner: Owner,
     val at: Long,
 )
+
+/** Katalog nadrzedny sciezki repo-wzglednej. "" dla czegos lezacego w korzeniu. */
+fun parentDir(rel: String): String {
+    val i = rel.lastIndexOf('/')
+    return if (i < 0) "" else rel.substring(0, i)
+}
 
 /**
  * Minimalny glob: ** dowolna glebokosc, * w obrebie segmentu, ? jeden znak.

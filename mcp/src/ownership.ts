@@ -3,6 +3,19 @@ import * as path from "node:path";
 
 export type Owner = "human" | "ai" | "none";
 
+/**
+ * Granulacja wlasnosci, wybierana per projekt.
+ *
+ *   file    - wlasnosc nadaje sie plikowi. Czyta sie `files`.
+ *   package - wlasnosc nadaje sie katalogowi (pakietowi), a plik dziedziczy ja
+ *             z najblizszego katalogu w gore. Czyta sie `dirs`.
+ *
+ * Tryby sa rozlaczne: aktywny tryb decyduje, ktora warstwa manifestu jest czytana,
+ * druga lezy nietknieta. Dzieki temu przelaczenie tam i z powrotem nie gubi oznaczen
+ * i nie tworzy stanu, w ktorym plik ma dwoch wlascicieli naraz.
+ */
+export type Mode = "file" | "package";
+
 export interface FileEntry {
   owner: Owner;
   since: string;
@@ -18,7 +31,10 @@ export interface PatternEntry {
 
 export interface Manifest {
   version: number;
+  mode: Mode;
   files: Record<string, FileEntry>;
+  /** Klucz to sciezka katalogu wzgledem korzenia; "" znaczy caly repozytorium. */
+  dirs: Record<string, FileEntry>;
   patterns: PatternEntry[];
 }
 
@@ -56,7 +72,12 @@ export function toAbs(root: string, rel: string): string {
 }
 
 function emptyManifest(): Manifest {
-  return { version: 1, files: {}, patterns: [] };
+  return { version: 1, mode: "file", files: {}, dirs: {}, patterns: [] };
+}
+
+/** Manifest bez pola `mode` to manifest sprzed trybow - domyslnie tryb plikowy. */
+function toMode(v: unknown): Mode {
+  return v === "package" ? "package" : "file";
 }
 
 export function load(root: string): Manifest {
@@ -66,7 +87,9 @@ export function load(root: string): Manifest {
     const raw = JSON.parse(fs.readFileSync(mp, "utf8"));
     const m: Manifest = {
       version: typeof raw.version === "number" ? raw.version : 1,
+      mode: toMode(raw.mode),
       files: raw.files && typeof raw.files === "object" ? raw.files : {},
+      dirs: raw.dirs && typeof raw.dirs === "object" ? raw.dirs : {},
       patterns: Array.isArray(raw.patterns) ? raw.patterns : [],
     };
     return pruneStalePending(root, m);
@@ -133,12 +156,19 @@ export interface Resolution {
   entry?: FileEntry;
 }
 
+/** Katalog nadrzedny sciezki repo-wzglednej. "" dla pliku lezacego w korzeniu. */
+export function parentDir(rel: string): string {
+  const i = rel.lastIndexOf("/");
+  return i < 0 ? "" : rel.slice(0, i);
+}
+
 export function resolveOwner(m: Manifest, rel: string): Resolution {
-  const exact = m.files[rel] ?? findCaseInsensitive(m.files, rel);
-  if (exact) return { owner: exact.owner, source: "wpis pliku", entry: exact };
+  const direct =
+    m.mode === "package" ? resolvePackage(m, parentDir(rel)) : resolveFile(m, rel);
+  if (direct) return direct;
 
   // Ostatni pasujacy wzorzec wygrywa - dzieki temu bardziej szczegolowe
-  // reguly dopisuje sie na koniec listy.
+  // reguly dopisuje sie na koniec listy. Wzorce dzialaja w obu trybach.
   let hit: PatternEntry | undefined;
   for (const p of m.patterns) {
     if (globToRegExp(p.glob).test(rel)) hit = p;
@@ -146,6 +176,32 @@ export function resolveOwner(m: Manifest, rel: string): Resolution {
   if (hit) return { owner: hit.owner, source: `wzorzec ${hit.glob}` };
 
   return { owner: "none", source: "brak wpisu" };
+}
+
+function resolveFile(m: Manifest, rel: string): Resolution | null {
+  const exact = m.files[rel] ?? findCaseInsensitive(m.files, rel);
+  return exact ? { owner: exact.owner, source: "wpis pliku", entry: exact } : null;
+}
+
+/**
+ * Idzie w gore od podanego katalogu i bierze pierwszy wpis, jaki napotka.
+ * Najblizszy pakiet wygrywa, wiec zagniezdzony `com/example/util` przykrywa
+ * `com/example` bez zadnej dodatkowej reguly pierwszenstwa.
+ */
+export function resolvePackage(m: Manifest, dir: string): Resolution | null {
+  let d = dir;
+  for (;;) {
+    const hit = m.dirs[d] ?? findCaseInsensitive(m.dirs, d);
+    if (hit) {
+      return {
+        owner: hit.owner,
+        source: d === "" ? "pakiet: korzen repozytorium" : `pakiet ${d}`,
+        entry: hit,
+      };
+    }
+    if (d === "") return null;
+    d = parentDir(d);
+  }
 }
 
 function findCaseInsensitive(
@@ -182,6 +238,7 @@ export function setOwner(
 
 export function counts(m: Manifest): Record<Owner, number> {
   const c: Record<Owner, number> = { human: 0, ai: 0, none: 0 };
-  for (const e of Object.values(m.files)) c[e.owner]++;
+  const src = m.mode === "package" ? m.dirs : m.files;
+  for (const e of Object.values(src)) c[e.owner]++;
   return c;
 }
