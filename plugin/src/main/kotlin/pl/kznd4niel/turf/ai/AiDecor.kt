@@ -64,7 +64,12 @@ object AiColors {
 /** Odstep miedzy krawedzia podkladki a napisem. */
 private const val PAD = 8
 
-private val DECOR_KEY = Key.create<AiDecor>("turf.ai.decor")
+/**
+ * Typ jest luzny naumyslnie. Klucze rozpoznaje sie po nazwie, wiec ten sam klucz widzi
+ * takze poprzednia wersja wtyczki - a jej obiekt jest inna klasa mimo tej samej nazwy.
+ * Bezpieczne rzutowanie zamienia to z wyjatku w zwykle "nie ma nic".
+ */
+private val DECOR_KEY = Key.create<Any>("turf.ai.decor")
 
 private fun italic(editor: Editor): Font = editor.colorsScheme.getFont(EditorFontType.ITALIC)
 
@@ -322,6 +327,7 @@ class AiDecor(private val editor: Editor) : Disposable {
     }
 
     override fun dispose() {
+        if (editor.getUserData(DECOR_KEY) === this) editor.putUserData(DECOR_KEY, null)
         (editor as? EditorEx)?.setCustomCursor(this, null)
         clear()
     }
@@ -335,17 +341,25 @@ class AiDecor(private val editor: Editor) : Disposable {
         /** Skan idzie po kazdej zmianie dokumentu, wiec z opoznieniem. */
         private const val DEBOUNCE_MS = 300
 
-        fun of(editor: Editor): AiDecor? = editor.getUserData(DECOR_KEY)
+        fun of(editor: Editor): AiDecor? = editor.getUserData(DECOR_KEY) as? AiDecor
 
         fun attach(editor: Editor) {
-            if (editor.getUserData(DECOR_KEY) != null) return
-            editor.putUserData(DECOR_KEY, AiDecor(editor))
+            if (of(editor) != null) return
+            val svc = editor.project?.service<TurfService>() ?: return
+            val decor = AiDecor(editor)
+            // Rodzicem jest serwis projektu, wiec wylaczenie wtyczki zdejmuje nasluchy
+            // z edytora. Bez tego stara wersja dalej lapalaby klikniecia.
+            try {
+                Disposer.register(svc, decor)
+            } catch (e: Throwable) {
+                Disposer.dispose(decor)
+                return
+            }
+            editor.putUserData(DECOR_KEY, decor)
         }
 
         fun detach(editor: Editor) {
-            val decor = editor.getUserData(DECOR_KEY) ?: return
-            editor.putUserData(DECOR_KEY, null)
-            Disposer.dispose(decor)
+            Disposer.dispose(of(editor) ?: return)
         }
     }
 }

@@ -152,7 +152,8 @@ cd C:/Users/danie/turf/plugin && ./gradlew buildPlugin
 ```
 
 Zip ląduje w `plugin/build/distributions/`. W IDE: **Settings → Plugins → ⚙ → Install
-Plugin from Disk**. Zbudowana pod IntelliJ 2025.1+ (`sinceBuild=251`, `untilBuild=261.*`),
+Plugin from Disk**. Po podmianie zipa **zrestartuj IDE**: warstwa edytora wisi na otwartych
+plikach, a hot-reload zostawia na nich starą wersję. Zbudowana pod IntelliJ 2025.1+ (`sinceBuild=251`, `untilBuild=261.*`),
 tylko API platformy — działa też w PyCharmie, Riderze i reszcie.
 
 Do rozwoju: `./gradlew runIde` odpala osobną instancję IDE z wtyczką.

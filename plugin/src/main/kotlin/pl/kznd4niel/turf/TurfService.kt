@@ -3,6 +3,7 @@ package pl.kznd4niel.turf
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.intellij.ide.util.PropertiesComponent
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.Service
@@ -17,8 +18,16 @@ import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 
+/**
+ * Serwis jest jednoczesnie rodzicem dla wszystkiego, co wtyczka wiesza na edytorach.
+ * Wylaczenie albo podmiana wtyczki kasuje serwisy projektu, a razem z nimi te nasluchy -
+ * inaczej stara wersja siedzialaby dalej na otwartym edytorze i przy pierwszym klikniecu
+ * probowala siegnac po serwis z nowego classloadera.
+ */
 @Service(Service.Level.PROJECT)
-class TurfService(private val project: Project) {
+class TurfService(private val project: Project) : Disposable {
+
+    override fun dispose() = Unit
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
