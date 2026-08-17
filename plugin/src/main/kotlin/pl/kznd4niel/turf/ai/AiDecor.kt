@@ -170,9 +170,16 @@ class AiDecor(private val editor: Editor) : Disposable {
         val textRight =
             if (numbers > 0) x + numbers else x + metrics(editor).charWidth('0') * 3
 
-        // Pole siega przez cala rynienke, ale konczy sie tam, gdzie zaczyna sie pasek
-        // zmian gita - jego przykrycie podswietleniem zabieraloby informacje.
-        val right = gutter.whitespaceSeparatorOffset.takeIf { it > textRight } ?: gutter.width
+        // Pole siega przez cala rynienke, ale konczy sie tam, gdzie ZACZYNA sie pasek
+        // zmian gita - jego przykrycie podswietleniem zabieraloby informacje. Pasek
+        // rysowany jest od lineMarkerFreePaintersAreaOffset do whitespaceSeparatorOffset,
+        // wiec granica jest ta pierwsza wartosc; druga to jego prawy koniec, czyli juz
+        // za daleko. Reszta listy to zapas na wypadek nietypowego ukladu rynienki.
+        val right = listOf(
+            gutter.lineMarkerFreePaintersAreaOffset - 1,
+            gutter.whitespaceSeparatorOffset,
+            gutter.width,
+        ).firstOrNull { it > textRight } ?: gutter.width
 
         return folds.entries.mapNotNull { (region, info) ->
             if (!region.isValid) return@mapNotNull null
