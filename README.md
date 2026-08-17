@@ -277,6 +277,12 @@ ma już własnego numeru linii ani ikon z podświetleń, więc platforma pyta o 
 renderer. Numeracja przeskakuje na tym wierszu (np. z 14 na 20) i tak zostaje — to normalne
 dla zwinięcia obejmującego całe linie.
 
+Czcionka, jej rozmiar i wysokość wiersza są brane z edytora, dokładnie tak jak przy numerach
+linii, więc od numeru różni ją tylko barwa. **W tej samej kolumnie co numery jej nie ma i być
+nie może**: platforma nie numeruje wierszy custom-foldów, a kolumny numerów wtyczka nie może
+przemalować per linia. Liczba siedzi w pasku ikon tuż obok — dosunięta do lewej krawędzi
+swojego paska, czyli najbliżej numerów, jak się da.
+
 Zwijanie domyślne dotyczy **otwarcia pliku, nie pisania**. Kiedy dopisujesz `@Claude` nad
 metodą, blok zostaje rozwinięty — zwijanie tego, przy czym właśnie pracujesz, byłoby
 wyrywaniem kartki z ręki. Zwinie się przy następnym otwarciu pliku. Ręcznie ustawiony stan

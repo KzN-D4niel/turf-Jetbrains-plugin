@@ -42,10 +42,6 @@ import java.awt.event.MouseEvent
 import java.awt.geom.Rectangle2D
 import java.awt.geom.RoundRectangle2D
 import javax.swing.Icon
-import javax.swing.JLabel
-
-/** Do mierzenia napisu licznika, zanim jest gdzie go narysowac. */
-private val MEASURE = JLabel()
 
 /**
  * Jeden kolor na wszystkie znaczniki - rozroznia je napis, nie barwa.
@@ -429,7 +425,7 @@ private class CounterFoldRenderer(
     ) = Unit
 
     override fun calcGutterIconRenderer(region: CustomFoldRegion): GutterIconRenderer =
-        CounterGutterIcon(block, key, decor)
+        CounterGutterIcon(block, key, decor, region.editor)
 
     override fun hit(region: CustomFoldRegion, p: Point): Boolean {
         val loc = region.location ?: return false
@@ -438,16 +434,23 @@ private class CounterFoldRenderer(
     }
 }
 
-/** Sama liczba zwinietych linii, w kolorze Turfa, obok numeru linii. */
-private class CountIcon(count: Int) : Icon {
+/**
+ * Sama liczba zwinietych linii, tuz obok numerow linii.
+ *
+ * Czcionka, jej rozmiar i wysokosc wiersza sa brane z edytora - dokladnie tak, jak
+ * rysuje sie numery linii - zeby od numeru rozniala ja wylacznie barwa. Szerokosc jest
+ * przyciasna naumyslnie: ikona idzie wtedy do lewej krawedzi swojego paska, czyli tak
+ * blisko kolumny numerow, jak platforma pozwala.
+ */
+private class CountIcon(private val text: String, editor: Editor) : Icon {
 
-    private val text = count.toString()
-    private val font = JBUI.Fonts.smallFont().asBold()
-    private val width = MEASURE.getFontMetrics(font).stringWidth(text)
+    private val font: Font = editor.colorsScheme.getFont(EditorFontType.PLAIN)
+    private val fm: FontMetrics = editor.contentComponent.getFontMetrics(font)
+    private val height: Int = editor.lineHeight
 
-    override fun getIconWidth(): Int = maxOf(JBUI.scale(12), width + JBUI.scale(4))
+    override fun getIconWidth(): Int = fm.stringWidth(text) + JBUI.scale(2)
 
-    override fun getIconHeight(): Int = JBUI.scale(14)
+    override fun getIconHeight(): Int = height
 
     override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
         val g2 = g.create() as Graphics2D
@@ -455,12 +458,8 @@ private class CountIcon(count: Int) : Icon {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             g2.font = font
             g2.color = AiColors.ACCENT
-            val fm = g2.fontMetrics
-            g2.drawString(
-                text,
-                x + (iconWidth - fm.stringWidth(text)) / 2,
-                y + (iconHeight - fm.height) / 2 + fm.ascent,
-            )
+            val m = g2.fontMetrics
+            g2.drawString(text, x, y + (height - m.height) / 2 + m.ascent)
         } finally {
             g2.dispose()
         }
@@ -472,9 +471,10 @@ private class CounterGutterIcon(
     private val block: AiBlock,
     private val key: String,
     private val decor: AiDecor,
+    editor: Editor,
 ) : GutterIconRenderer() {
 
-    private val icon = CountIcon(block.lineCount)
+    private val icon = CountIcon(block.lineCount.toString(), editor)
 
     override fun getIcon(): Icon = icon
 
