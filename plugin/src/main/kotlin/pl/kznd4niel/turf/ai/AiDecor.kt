@@ -37,13 +37,18 @@ import java.awt.event.MouseEvent
 import java.awt.geom.Rectangle2D
 import java.awt.geom.RoundRectangle2D
 
-/** Jeden kolor na wszystkie znaczniki - rozroznia je napis, nie barwa. */
+/**
+ * Jeden kolor na wszystkie znaczniki - rozroznia je napis, nie barwa.
+ *
+ * Pomaranczowy, bo w tej samej barwie motywy rysuja adnotacje, a fold zastepuje wlasnie
+ * kod pod adnotacja. Niebieski jest zajety przez pasek zmian gita w rynience.
+ */
 object AiColors {
     /** Napis na foldzie i etykieta nad rozwinietym blokiem. */
-    val ACCENT: JBColor = JBColor(0x7A5AF8, 0x9B82FF)
+    val ACCENT: JBColor = JBColor(0xB0690A, 0xE0A458)
 
     /** Tlo rozwinietego bloku. Musi byc na tyle blade, zeby skladnia zostala czytelna. */
-    val BACKGROUND: JBColor = JBColor(0xF1EDFF, 0x2A2440)
+    val BACKGROUND: JBColor = JBColor(0xFDF1DF, 0x3A2E1C)
 }
 
 /** Odstep miedzy krawedzia podkladki a napisem. */
