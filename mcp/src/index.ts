@@ -101,8 +101,9 @@ server.registerTool(
       mode: m.mode,
       owner,
       source,
-      canEdit: owner === "ai",
-      canCreate: !exists && owner === "ai",
+      // Teren wspolny tez daje prawo zapisu - warunkowe, ale bez wniosku.
+      canEdit: owner === "ai" || owner === "shared",
+      canCreate: !exists && (owner === "ai" || owner === "shared"),
       reservedForAi,
     };
     return text(verdictText(v, r.abs));
@@ -199,6 +200,7 @@ server.registerTool(
       `WLASNOSC (liczone ${jednostka})`,
       `  Twoje (ai):        ${c.ai}`,
       `  Uzytkownika:       ${c.human}`,
+      `  Wspolne (shared):  ${c.shared}`,
       `  Wzorce:            ${m.patterns.length}`,
       m.mode === "package"
         ? `  Plik dziedziczy wlasnosc z najblizszego pakietu w gore. Co nie lezy pod`

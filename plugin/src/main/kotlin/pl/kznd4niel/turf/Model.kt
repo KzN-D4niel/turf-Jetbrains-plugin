@@ -3,6 +3,12 @@ package pl.kznd4niel.turf
 enum class Owner(val id: String, val label: String) {
     HUMAN("human", "Ty"),
     AI("ai", "AI"),
+    /**
+     * Teren wspolny: AI wolno pisac bez wniosku, ale drobiazgowo - przestawic kolejnosc,
+     * dolozyc mala metode - i zawsze zostawic adnotacje znacznikowa, zeby bylo widac,
+     * co dopisala. Kod docelowo nalezy do czlowieka, wiec to jego konwencje obowiazuja.
+     */
+    SHARED("shared", "wspolne"),
     NONE("none", "niczyj");
 
     companion object {
@@ -35,6 +41,12 @@ class FileEntry {
     @JvmField var since: String = ""
     @JvmField var by: String = ""
     @JvmField var pending: Boolean? = null
+    /**
+     * Wpis pliku, ktory ma byc czytany takze w trybie pakietowym - swiadomy wyjatek od
+     * wlasnosci pakietu. Bez tej flagi warstwy zostaja rozlaczne, wiec przelaczenie
+     * trybow nie wskrzesza oznaczen zrobionych w tym drugim.
+     */
+    @JvmField var override: Boolean? = null
 }
 
 class PatternEntry {
@@ -72,13 +84,6 @@ class EditRequest {
     val zakres: String
         get() = edits.joinToString(", ") { "${it.lineStart}-${it.lineEnd}" }
 }
-
-/** Zapis z zewnatrz do pliku, ktory nie nalezy do AI. */
-data class Violation(
-    val path: String,
-    val owner: Owner,
-    val at: Long,
-)
 
 /** Katalog nadrzedny sciezki repo-wzglednej. "" dla czegos lezacego w korzeniu. */
 fun parentDir(rel: String): String {

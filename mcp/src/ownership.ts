@@ -1,7 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export type Owner = "human" | "ai" | "none";
+/**
+ * `shared` to teren wspolny: AI wolno pisac bez wniosku, ale drobiazgowo i zawsze
+ * zostawiajac adnotacje znacznikowa. Kod docelowo nalezy do czlowieka.
+ */
+export type Owner = "human" | "ai" | "shared" | "none";
 
 /**
  * Granulacja wlasnosci, wybierana per projekt.
@@ -22,6 +26,8 @@ export interface FileEntry {
   by: string;
   /** Rezerwacja zrobiona przy turf_check na nieistniejacy plik. Znika, jesli plik nie powstanie. */
   pending?: boolean;
+  /** Wpis czytany takze w trybie pakietowym - swiadomy wyjatek od wlasnosci pakietu. */
+  override?: boolean;
 }
 
 export interface PatternEntry {
@@ -164,7 +170,11 @@ export function parentDir(rel: string): string {
 
 export function resolveOwner(m: Manifest, rel: string): Resolution {
   const direct =
-    m.mode === "package" ? resolvePackage(m, parentDir(rel)) : resolveFile(m, rel);
+    m.mode === "package"
+      ? // Wyjatek plikowy bije pakiet - inaczej jeden wspolny plik w cudzym pakiecie
+        // wymagalby rozbijania calego pakietu.
+        resolveOverride(m, rel) ?? resolvePackage(m, parentDir(rel))
+      : resolveFile(m, rel);
   if (direct) return direct;
 
   // Ostatni pasujacy wzorzec wygrywa - dzieki temu bardziej szczegolowe
@@ -176,6 +186,12 @@ export function resolveOwner(m: Manifest, rel: string): Resolution {
   if (hit) return { owner: hit.owner, source: `wzorzec ${hit.glob}` };
 
   return { owner: "none", source: "brak wpisu" };
+}
+
+function resolveOverride(m: Manifest, rel: string): Resolution | null {
+  const e = m.files[rel] ?? findCaseInsensitive(m.files, rel);
+  if (!e || !e.override) return null;
+  return { owner: e.owner, source: "wyjatek plikowy od pakietu", entry: e };
 }
 
 function resolveFile(m: Manifest, rel: string): Resolution | null {
@@ -237,8 +253,12 @@ export function setOwner(
 }
 
 export function counts(m: Manifest): Record<Owner, number> {
-  const c: Record<Owner, number> = { human: 0, ai: 0, none: 0 };
+  const c: Record<Owner, number> = { human: 0, ai: 0, shared: 0, none: 0 };
   const src = m.mode === "package" ? m.dirs : m.files;
   for (const e of Object.values(src)) c[e.owner]++;
+  // Wyjatki plikowe nie leza w warstwie pakietow, wiec inaczej znikneloby ich istnienie.
+  if (m.mode === "package") {
+    for (const e of Object.values(m.files)) if (e.override) c[e.owner]++;
+  }
   return c;
 }

@@ -2,6 +2,9 @@ import type { Mode, Owner } from "./ownership.js";
 
 export const MAX_REQUEST_LINES = 3;
 
+/** Adnotacja, ktora AI zostawia nad kodem dopisanym na terenie wspolnym. */
+export const MARKER = "@Claude";
+
 export interface Verdict {
   rel: string;
   exists: boolean;
@@ -35,41 +38,54 @@ Zasady bezwzgledne:
 
 4. Plik niczyj (bez wpisu w manifescie) traktujesz jak plik uzytkownika: nie edytujesz,
    ale mozesz zlozyc na niego wniosek na tych samych zasadach. Brak wpisu to domyslna
-   odmowa edycji, a nie osobna kategoria z wlasnymi regulami.`;
+   odmowa edycji, a nie osobna kategoria z wlasnymi regulami.
+
+5. Teren wspolny (owner: shared) to trzecia kategoria i jedyna, w ktorej piszesz w
+   cudzym kodzie bez pytania. Obowiazuja tam trzy rzeczy naraz:
+   - piszesz MALO: przestawiasz kolejnosc, dokladasz krotka metode, poprawiasz
+     drobiazg. Nie przepisujesz cudzej metody i nie przebudowujesz pliku;
+   - piszesz DLA CZLOWIEKA: to jego kod i jego konwencje, wiec dopasowujesz sie do
+     tego, co zastales, zamiast wprowadzac swoj styl;
+   - ZAWSZE zostawiasz adnotacje ${MARKER} w linii bezposrednio nad tym, co dopisales.
+     Bez adnotacji zmiana na terenie wspolnym jest naruszeniem kontraktu, nawet jesli
+     sama zmiana byla drobna i sluszna. IDE po tej adnotacji poznaje i zwija Twoj kod,
+     wiec bez niej Twoja praca udaje prace czlowieka.
+   Jesli zmiana nie miesci sie w "malo", nie robisz jej po cichu - skladasz wniosek
+   albo mowisz uzytkownikowi, ze potrzeba czegos wiekszego.`;
 
 const KONIEC = `Obejscie granicy jest naruszeniem kontraktu, nawet jesli technicznie sie uda.
-   Plugin IDE wykrywa zapisy z zewnatrz do plikow, ktore nie naleza do Ciebie, i
-   pokazuje je uzytkownikowi. Nie probuj.
+   Nikt nie stoi nad Toba z alarmem - wlasnie dlatego to Ty odpowiadasz za trzymanie
+   sie orzeczenia. Uzytkownik widzi w IDE, ktory plik jest czyj, i czyta diff.
 
 O trybie decyduje wylacznie uzytkownik w IDE. Nie masz narzedzia, ktore go zmienia,
 i nie prosisz o zmiane trybu, zeby ominac odmowe.`;
 
-const TRYB_PLIK = `5. TRYB: PLIKI. Wlasnosc jest nadawana pojedynczym plikom. Kazdy plik ma swojego
+const TRYB_PLIK = `6. TRYB: PLIKI. Wlasnosc jest nadawana pojedynczym plikom. Kazdy plik ma swojego
    wlasciciela niezaleznie od tego, gdzie lezy.
 
-6. Nowy plik: turf_check rezerwuje go dla Ciebie w momencie sprawdzenia. Po
+7. Nowy plik: turf_check rezerwuje go dla Ciebie w momencie sprawdzenia. Po
    utworzeniu jest Twoj i mozesz w nim pracowac bez pytania. Rezerwacja dotyczy
    DOKLADNIE tej sciezki - inny plik wymaga osobnego turf_check.
    Uwaga: pliki tworzone przez uzytkownika w IDE staja sie od razu jego, wiec
    sciezka, ktora przed chwila byla wolna, moze juz nie byc.
 
-7. `;
+8. `;
 
-const TRYB_PAKIET = `5. TRYB: PAKIETY. Wlasnosc jest nadawana calym katalogom, a plik dziedziczy ja z
+const TRYB_PAKIET = `6. TRYB: PAKIETY. Wlasnosc jest nadawana calym katalogom, a plik dziedziczy ja z
    najblizszego katalogu w gore. Nie ma wlasnosci pojedynczego pliku - jesli pakiet
    nalezy do uzytkownika, to nalezy do niego kazdy plik w srodku, takze taki, ktory
    dopiero powstanie.
 
-6. Nowy plik: NIE MA rezerwacji. Wolno Ci utworzyc plik wylacznie wewnatrz pakietu,
+7. Nowy plik: NIE MA rezerwacji. Wolno Ci utworzyc plik wylacznie wewnatrz pakietu,
    ktory juz nalezy do Ciebie. W cudzym albo nieprzypisanym pakiecie nie tworzysz
    niczego - takze zeby "obejsc" brak dostepu do pliku obok.
 
-7. Nie zakladasz nowych pakietow poza swoim terytorium. Katalog powstaly przy okazji
+8. Nie zakladasz nowych pakietow poza swoim terytorium. Katalog powstaly przy okazji
    tworzenia pliku dziedziczy tak samo jak plik, wiec katalog w cudzym pakiecie
    dalej jest cudzy. Jesli potrzebujesz wlasnego miejsca, popros uzytkownika o
    oznaczenie pakietu.
 
-8. `;
+9. `;
 
 export function contract(mode: Mode): string {
   const tryb = mode === "package" ? TRYB_PAKIET : TRYB_PLIK;
@@ -87,15 +103,22 @@ export function verdictText(v: Verdict, absPath: string): string {
     `ISTNIEJE: ${v.exists ? "tak" : "nie"}`,
     `TRYB: ${modeLabel(v.mode)}`,
     `WLASCICIEL: ${ownerLabel(v.owner)}  (${v.source})`,
-    `MOZESZ EDYTOWAC: ${v.canEdit ? "TAK" : "NIE"}`,
+    `MOZESZ EDYTOWAC: ${editLabel(v)}`,
   ].join("\n");
 
   return `${head}\n\n${body(v)}`;
 }
 
+function editLabel(v: Verdict): string {
+  if (!v.canEdit) return "NIE";
+  if (v.owner === "shared") return `TAK, ale drobiazgowo i zawsze z adnotacja ${MARKER}`;
+  return "TAK";
+}
+
 function ownerLabel(o: Owner): string {
   if (o === "ai") return "ai (Ty)";
   if (o === "human") return "human (uzytkownik)";
+  if (o === "shared") return "shared (teren wspolny)";
   return "none (niczyj)";
 }
 
@@ -110,6 +133,25 @@ Plik jest Twoj. Edytuj normalnie - Edit, Write, co potrzebujesz.
   - Nie przenos tu kodu, ktory nalezy do uzytkownika, zeby go "odblokowac".
   - Mozesz wywolywac dowolne publiczne metody z jego plikow.
   - Jesli refactor wymaga zmiany po jego stronie, zloz turf_request na jego plik.`;
+  }
+
+  if (v.owner === "shared") {
+    return `ZASADY - TEREN WSPOLNY
+
+Mozesz pisac w tym pliku bez wniosku, ale na warunkach, ktore obowiazuja bezwzglednie.
+
+  1. KAZDY fragment, ktory dopiszesz albo przerobisz, poprzedzasz linia z adnotacja
+     ${MARKER}. Linia stoi bezposrednio nad tym fragmentem i sklada sie wylacznie z
+     adnotacji (w jezykach bez adnotacji - w komentarzu, np. "# ${MARKER}" albo
+     "// ${MARKER}"). IDE po tym poznaje i zwija Twoj kod.
+  2. Zmiana ma byc mala: przestawienie kolejnosci, krotka nowa metoda, drobna poprawka.
+     Nie przepisujesz cudzych metod i nie przebudowujesz pliku. Jesli potrzeba czegos
+     wiecej - turf_request albo rozmowa z uzytkownikiem, nie ciche wieksze ciecie.
+  3. Piszesz w konwencji, ktora tu zastales. Ten kod docelowo nalezy do uzytkownika,
+     wiec to jego styl obowiazuje, nie Twoj.
+  4. Nie kasujesz i nie przenosisz cudzego kodu, nie zmieniasz nazwy pliku.
+  5. Cudzych adnotacji ${MARKER} z poprzednich sesji nie zdejmujesz - to nie jest
+     smiec do posprzatania, tylko granica.`;
   }
 
   if (v.owner === "human") {
@@ -177,6 +219,18 @@ mozesz go utworzyc i od razu w nim pracowac.
   - Wlasnosc dziedziczy sie z pakietu, wiec nie ma tu zadnej rezerwacji do wygasniecia.
   - To pozwolenie dotyczy tego pakietu, nie calego repozytorium. Plik obok, w innym
     pakiecie, wymaga osobnego turf_check.`;
+  }
+
+  if (v.owner === "shared") {
+    return `ZASADY - TEREN WSPOLNY
+
+Ten plik nie istnieje, a miejsce, w ktorym mialby powstac, jest wspolne (${v.source}).
+Mozesz go utworzyc.
+
+  - Kod, ktory w nim napiszesz, oznaczasz adnotacja ${MARKER} tak samo jak wszedzie
+    indziej na terenie wspolnym.
+  - Nie przenos tu cudzego kodu, zeby go "odblokowac" - przeniesiony kod dalej nalezy
+    do uzytkownika, a Ty dostales prawo dopisywania, nie przejmowania.`;
   }
 
   const czyj =

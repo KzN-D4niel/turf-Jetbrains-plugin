@@ -223,6 +223,73 @@ check("pakiety: status liczy pakiety",
   stanPkg
 );
 
+// --------------------------------------------------------- teren wspolny
+
+fs.mkdirSync(path.join(root, "src/wspolne"), { recursive: true });
+fs.writeFileSync(path.join(root, "src/wspolne/D.java"), "class D {}\n");
+// Wyjatek plikowy: pakiet uzytkownika, ale ten jeden plik jest wspolny.
+fs.writeFileSync(path.join(root, "src/human/Wyjatek.java"), "class Wyjatek {}\n");
+
+const wyjatek = { owner: "shared", since: teraz, by: "test", override: true };
+fs.writeFileSync(
+  path.join(root, ".turf", "ownership.json"),
+  JSON.stringify(
+    {
+      version: 1,
+      mode: "package",
+      files: { "src/human/Pinned.java": wpis("ai"), "src/human/Wyjatek.java": wyjatek },
+      dirs: {
+        "src/human": wpis("human"),
+        "src/ai": wpis("ai"),
+        "src/wspolne": wpis("shared"),
+      },
+      patterns: [],
+    },
+    null,
+    2
+  )
+);
+
+const kontraktWsp = await call("turf_rules");
+check("wspolne: kontrakt opisuje teren wspolny",
+  kontraktWsp.includes("Teren wspolny (owner: shared)"), kontraktWsp);
+check("wspolne: kontrakt wymaga adnotacji", kontraktWsp.includes("@Claude"), kontraktWsp);
+
+const wspolny = await call("turf_check", { path: "src/wspolne/D.java" });
+check("wspolne: edycja dozwolona warunkowo",
+  wspolny.includes("MOZESZ EDYTOWAC: TAK, ale drobiazgowo"), wspolny);
+check("wspolne: werdykt kaze zostawic adnotacje",
+  wspolny.includes("@Claude"), wspolny);
+check("wspolne: werdykt zabrania przebudowy",
+  wspolny.includes("Nie przepisujesz cudzych metod"), wspolny);
+
+const wspolnyNowy = await call("turf_check", { path: "src/wspolne/Nowy.java" });
+check("wspolne: nowy plik dozwolony",
+  wspolnyNowy.includes("MOZESZ EDYTOWAC: TAK, ale drobiazgowo"), wspolnyNowy);
+
+const nadpisany = await call("turf_check", { path: "src/human/Wyjatek.java" });
+check("wspolne: wyjatek plikowy bije pakiet uzytkownika",
+  nadpisany.includes("MOZESZ EDYTOWAC: TAK, ale drobiazgowo") &&
+    nadpisany.includes("wyjatek plikowy od pakietu"),
+  nadpisany
+);
+
+const pinnedDalej = await call("turf_check", { path: "src/human/Pinned.java" });
+check("wspolne: wpis bez flagi override dalej ignorowany",
+  pinnedDalej.includes("MOZESZ EDYTOWAC: NIE"), pinnedDalej);
+
+const stanWsp = await call("turf_status");
+check("wspolne: status liczy teren wspolny",
+  stanWsp.includes("Wspolne (shared):  2"), stanWsp);
+
+// Wniosek na terenie wspolnym dalej ma sens - to droga na zmiane wieksza niz drobiazg.
+const wniosekWsp = await call("turf_request", {
+  path: "src/wspolne/D.java",
+  reason: "Przebudowa wieksza niz drobiazg.",
+  edits: [{ lineStart: 1, lineEnd: 1, replacement: "class D { }" }],
+});
+check("wspolne: wniosek przechodzi", wniosekWsp.startsWith("WNIOSEK ZLOZONY"), wniosekWsp);
+
 await client.close();
 fs.rmSync(root, { recursive: true, force: true });
 

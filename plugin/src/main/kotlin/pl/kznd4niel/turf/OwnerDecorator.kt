@@ -38,6 +38,10 @@ class OwnerDecorator : ProjectViewNodeDecorator {
         when (svc.ownerOf(file)) {
             Owner.AI -> if (svc.showAiIcons) data.setIcon(TurfIcons.AI)
             Owner.NONE -> data.forcedTextForeground = DIM
+            // Wspolne nie dostaje ikony: to dalej Twoj kod, tylko z wpuszczonym AI.
+            // Trzecia ikona w drzewie szumialaby bardziej, niz informowala.
+            Owner.SHARED -> data.tooltip =
+                "Turf: teren wspolny - AI moze dopisywac drobiazgi, zostawiajac adnotacje"
             Owner.HUMAN -> {}
         }
     }

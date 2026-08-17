@@ -31,6 +31,10 @@ class TurfService(private val project: Project) {
     @Volatile
     private var dirLookup: Map<String, Owner> = emptyMap()
 
+    /** Wpisy plikowe z flaga `override` - jedyne, ktore przebijaja wlasnosc pakietu. */
+    @Volatile
+    private var overrideLookup: Map<String, Owner> = emptyMap()
+
     @Volatile
     var mode: TurfMode = TurfMode.FILE
         private set
@@ -40,8 +44,6 @@ class TurfService(private val project: Project) {
 
     @Volatile
     private var pendingRequests: List<EditRequest> = emptyList()
-
-    private val violationList = CopyOnWriteArrayList<Violation>()
 
     private val listeners = CopyOnWriteArrayList<Runnable>()
 
@@ -56,7 +58,16 @@ class TurfService(private val project: Project) {
         return showAiIcons
     }
 
-    val violations: List<Violation> get() = violationList.toList()
+    /** Czy bloki oznaczone znacznikiem AI maja byc zwiniete zaraz po otwarciu pliku. */
+    @Volatile
+    var foldAiBlocks: Boolean = true
+        private set
+
+    fun toggleAiFolds(): Boolean {
+        foldAiBlocks = !foldAiBlocks
+        fireChanged()
+        return foldAiBlocks
+    }
 
     fun addListener(r: Runnable) = listeners.add(r)
     fun removeListener(r: Runnable) = listeners.remove(r)
@@ -104,6 +115,9 @@ class TurfService(private val project: Project) {
         mode = TurfMode.from(data.mode)
         lookup = data.files.entries.associate { (k, v) -> k.lowercase() to Owner.from(v.owner) }
         dirLookup = data.dirs.entries.associate { (k, v) -> k.lowercase() to Owner.from(v.owner) }
+        overrideLookup = data.files.entries
+            .filter { (_, v) -> v.override == true }
+            .associate { (k, v) -> k.lowercase() to Owner.from(v.owner) }
         compiledPatterns = data.patterns.map { globToRegex(it.glob) to Owner.from(it.owner) }
         pendingRequests = readRequests()
         fireChanged()
@@ -148,7 +162,9 @@ class TurfService(private val project: Project) {
 
     fun ownerOfRel(rel: String): Owner {
         val direct = when (mode) {
-            TurfMode.PACKAGE -> nearestDir(parentDir(rel))
+            // Wyjatek plikowy bije pakiet - inaczej jeden wspolny plik w cudzym pakiecie
+            // wymagalby rozbijania calego pakietu.
+            TurfMode.PACKAGE -> overrideLookup[rel.lowercase()] ?: nearestDir(parentDir(rel))
             TurfMode.FILE -> lookup[rel.lowercase()]
         }
         direct?.let { return it }
@@ -176,12 +192,17 @@ class TurfService(private val project: Project) {
 
     // ---------- zapis wlasnosci ----------
 
-    fun setOwner(files: Collection<VirtualFile>, owner: Owner) {
+    /**
+     * @param fileOverride w trybie pakietowym oznacza sam plik jako wyjatek od pakietu,
+     *        zamiast oznaczac caly pakiet. W trybie plikowym nie zmienia niczego.
+     */
+    fun setOwner(files: Collection<VirtualFile>, owner: Owner, fileOverride: Boolean = false) {
         val m = manifest
-        val target = if (mode == TurfMode.PACKAGE) m.dirs else m.files
+        val packageWide = mode == TurfMode.PACKAGE && !fileOverride
+        val target = if (packageWide) m.dirs else m.files
 
         val keys = LinkedHashSet<String>()
-        if (mode == TurfMode.PACKAGE) {
+        if (packageWide) {
             // Jeden wpis na pakiet, bez schodzenia w glab: po to sa pakiety, zeby caly
             // podkatalog szedl jednym oznaczeniem. Zagniezdzony wpis zostaje i dalej
             // przykrywa nadrzedny, bo wygrywa najblizszy.
@@ -191,7 +212,9 @@ class TurfService(private val project: Project) {
         }
         if (keys.isEmpty()) return
 
-        keys.forEach { putEntry(target, it, owner, "IDE") }
+        keys.forEach {
+            putEntry(target, it, owner, "IDE", override = mode == TurfMode.PACKAGE && fileOverride)
+        }
         writeManifest(m)
         reload()
     }
@@ -225,6 +248,7 @@ class TurfService(private val project: Project) {
         key: String,
         owner: Owner,
         by: String,
+        override: Boolean = false,
     ) {
         // Klucz moze juz istniec w innej wielkosci liter - inaczej zrobilyby sie duplikaty.
         val existing = map.keys.firstOrNull { it.equals(key, ignoreCase = true) }
@@ -234,6 +258,7 @@ class TurfService(private val project: Project) {
         e.owner = owner.id
         e.since = Instant.now().toString()
         e.by = by
+        if (override) e.override = true
         map[key] = e
     }
 
@@ -317,19 +342,6 @@ class TurfService(private val project: Project) {
             runCatching { Files.deleteIfExists(d.resolve(it.id + ".json")) }
         }
         reload()
-    }
-
-    // ---------- naruszenia ----------
-
-    fun addViolation(v: Violation) {
-        violationList.add(0, v)
-        while (violationList.size > 200) violationList.removeAt(violationList.size - 1)
-        fireChanged()
-    }
-
-    fun clearViolations() {
-        violationList.clear()
-        fireChanged()
     }
 
     fun isManifestPath(path: String): Boolean {

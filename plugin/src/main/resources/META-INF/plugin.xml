@@ -7,12 +7,18 @@
         Dzieli repozytorium na kod czlowieka i kod AI. Wlasnosc trzymana jest w
         <code>.turf/ownership.json</code>, ten sam plik czyta serwer MCP, ktory orzeka,
         czy model ma prawo tknac dana sciezke.<br/><br/>
-        Wtyczka daje strone ludzka: oznaczanie wlasnosci w drzewie projektu, przegladanie
-        wnioskow AI o zmiane (limit 3 linijki) z przyjeciem jednym klikiem oraz wykrywanie
-        zapisow z zewnatrz do plikow, ktore do AI nie naleza.<br/><br/>
+        Wtyczka daje strone ludzka: oznaczanie wlasnosci w drzewie projektu i przegladanie
+        wnioskow AI o zmiane (limit 3 linijki) z przyjeciem jednym klikiem.<br/><br/>
         Granulacja jest do wyboru per projekt: <b>pliki</b> - wlasnosc na pojedynczy plik,
-        albo <b>pakiety</b> - wlasnosc na katalog, ktora pliki w srodku dziedzicza.
-        Plik utworzony w IDE od razu staje sie Twoj.
+        albo <b>pakiety</b> - wlasnosc na katalog, ktora pliki w srodku dziedzicza; w tym
+        drugim pojedynczy plik da sie wyjac z pakietu jako wyjatek.
+        Plik utworzony w IDE od razu staje sie Twoj.<br/><br/>
+        Poza wlasnoscia czlowieka i AI jest <b>teren wspolny</b>: AI moze tam dopisywac
+        drobiazgi bez wniosku, ale ma zostawiac adnotacje znacznikowa.<br/><br/>
+        Kod pod znacznikiem (<code>@Claude</code>, <code>@GPT</code>, <code>@AI</code> i
+        podobne, w dowolnym jezyku) jest domyslnie zwiniety pod wlasnym napisem
+        "12 Claude's lines folded". Po rozwinieciu blok ma podbarwione tlo i etykiete nad
+        soba, a przycisk przy krawedzi edytora zwija go z powrotem.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -26,11 +32,11 @@
                     factoryClass="pl.kznd4niel.turf.ui.TurfToolWindowFactory"/>
         <statusBarWidgetFactory id="Turf.Owner"
                                 implementation="pl.kznd4niel.turf.ui.OwnerWidgetFactory"/>
-        <notificationGroup id="Turf" displayType="BALLOON"/>
+        <editorFactoryListener implementation="pl.kznd4niel.turf.ai.AiEditorWatcher"/>
     </extensions>
 
     <applicationListeners>
-        <listener class="pl.kznd4niel.turf.watch.ViolationWatcher"
+        <listener class="pl.kznd4niel.turf.watch.TurfVfsListener"
                   topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
     </applicationListeners>
 
@@ -43,6 +49,14 @@
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift G"/>
         </action>
 
+        <action id="Turf.ToggleAiFolds"
+                class="pl.kznd4niel.turf.ai.ToggleAiFoldsAction"
+                text="Turf: Zwin / rozwin bloki AI"
+                description="Przelacza zwijanie kodu oznaczonego znacznikiem AI">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift H"/>
+        </action>
+
         <group id="Turf.Group" text="Turf" popup="true">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
             <action id="Turf.MarkMine"
@@ -53,10 +67,30 @@
                     class="pl.kznd4niel.turf.MarkAsAiAction"
                     text="Oznacz jako AI"
                     description="Plik staje sie terytorium AI"/>
+            <action id="Turf.MarkShared"
+                    class="pl.kznd4niel.turf.MarkAsSharedAction"
+                    text="Oznacz jako wspolne"
+                    description="AI moze dopisywac drobiazgi bez wniosku, ale zostawia adnotacje"/>
             <action id="Turf.Clear"
                     class="pl.kznd4niel.turf.ClearOwnerAction"
                     text="Wyczysc wlasnosc"
                     description="Plik wraca do stanu niczyj - AI nie moze go tknac"/>
+
+            <separator/>
+            <group id="Turf.OverrideGroup" text="Wyjatek od pakietu" popup="true">
+                <action id="Turf.Override.Mine"
+                        class="pl.kznd4niel.turf.OverrideAsMineAction"
+                        text="Tylko ten plik: moj"/>
+                <action id="Turf.Override.Ai"
+                        class="pl.kznd4niel.turf.OverrideAsAiAction"
+                        text="Tylko ten plik: AI"/>
+                <action id="Turf.Override.Shared"
+                        class="pl.kznd4niel.turf.OverrideAsSharedAction"
+                        text="Tylko ten plik: wspolny"/>
+                <action id="Turf.Override.Clear"
+                        class="pl.kznd4niel.turf.OverrideClearAction"
+                        text="Tylko ten plik: wyczysc wyjatek"/>
+            </group>
 
             <separator/>
             <group id="Turf.ModeGroup" text="Tryb wlasnosci" popup="true">

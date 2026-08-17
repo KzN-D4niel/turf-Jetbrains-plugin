@@ -75,6 +75,7 @@ class OwnerWidget(private val project: Project) :
         val czyj = when (current()) {
             Owner.AI -> "AI"
             Owner.HUMAN -> "Ty"
+            Owner.SHARED -> "wspolny"
             Owner.NONE -> "niczyj"
             null -> "—"
         }
@@ -94,6 +95,8 @@ class OwnerWidget(private val project: Project) :
         val czyj = when (current()) {
             Owner.AI -> "Plik nalezy do AI. Ty mozesz go edytowac, ale to jej terytorium."
             Owner.HUMAN -> "Twoj plik. AI nie ma prawa zapisu, moze tylko zlozyc wniosek na 3 linijki."
+            Owner.SHARED -> "Teren wspolny. AI moze dopisywac drobiazgi bez wniosku, " +
+                "ale ma zostawiac adnotacje - kod docelowo jest Twoj."
             Owner.NONE -> "Plik nieoznaczony. AI nie ma prawa zapisu ani wniosku - oznacz go."
             null -> "Brak otwartego pliku."
         }

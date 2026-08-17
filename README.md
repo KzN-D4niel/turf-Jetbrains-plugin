@@ -1,14 +1,15 @@
 # Turf
 
-Dzieli repozytorium na dwa terytoria: Twoje i AI. Wolno wam się nawzajem **wywoływać**,
-nie wolno wam się nawzajem **edytować**.
+Dzieli repozytorium na terytoria: Twoje i AI. Wolno wam się nawzajem **wywoływać**, nie
+wolno wam się nawzajem **edytować**. Pośrodku jest teren **wspólny**, gdzie AI może dopisać
+drobiazg — pod warunkiem, że zostawi po sobie adnotację, a IDE ten kod zwinie.
 
 Dwa kawałki, jeden wspólny plik prawdy:
 
 | | co robi |
 |---|---|
 | `mcp/` | serwer MCP — **orzeka**, czy model ma prawo tknąć daną ścieżkę |
-| `plugin/` | wtyczka IntelliJ — strona ludzka: nadawanie własności, wnioski, wykrywanie naruszeń |
+| `plugin/` | wtyczka IntelliJ — strona ludzka: nadawanie własności, wnioski, zwijanie kodu AI |
 | `.turf/ownership.json` | manifest własności, w repo, które chronisz (nie tutaj) |
 
 ## Jak to działa
@@ -61,8 +62,17 @@ Trybu nie ma w narzędziach MCP. Wybierasz go tylko Ty, w IDE.
 | stan | AI może edytować | AI może wnioskować |
 |---|---|---|
 | `ai` | tak | — |
+| `shared` | tak, ale **drobiazgowo i zawsze z adnotacją** | tak, na większą zmianę |
 | `human` | **nie** | tak, ≤3 linijki |
 | `none` (brak wpisu) | **nie** | tak, ≤3 linijki |
+
+**Teren wspólny** (`shared`) to jedyne miejsce, gdzie AI pisze w cudzym kodzie bez wniosku
+— i jedyne, gdzie pozwolenie jest warunkowe. Trzy warunki obowiązują naraz: zmiana ma być
+**mała** (przestawienie kolejności, krótka nowa metoda, drobna poprawka — nie przepisywanie
+cudzych metod), pisana **w zastanej konwencji**, bo kod docelowo należy do Ciebie, i **zawsze**
+poprzedzona linią z adnotacją `@Claude`. Bez adnotacji zmiana jest naruszeniem kontraktu,
+nawet jeśli sama w sobie była słuszna — po tej adnotacji IDE poznaje i zwija kod modelu, więc
+bez niej praca AI udaje Twoją. Na większe cięcie zostaje `turf_request`, tak jak wszędzie.
 
 **Brak wpisu traktowany jest jak własność człowieka** — domyślną odpowiedzią jest odmowa
 edycji, ale wniosek przechodzi na tych samych zasadach. Osobna kategoria „niczyj" z
@@ -81,16 +91,29 @@ Automatyczne nadania własności są dwa, oba w trybie plikowym:
 W trybie pakietowym żadne z tych dwóch nie działa i nie musi — nowy plik dziedziczy
 właściciela pakietu, w którym powstał.
 
+### Wyjątek od pakietu
+
+W trybie pakietowym pojedynczy plik da się wyjąć z pakietu: **Turf → Wyjątek od pakietu →
+Tylko ten plik: wspólny** (albo mój / AI). Wpis dostaje flagę `"override": true` i tylko taki
+jest czytany w trybie pakietowym — zwykłe wpisy plikowe zostają niewidzialne, więc tryby
+dalej są rozłączne i przełączanie tam i z powrotem niczego nie miesza.
+
+Bez tego jeden wspólny plik w Twoim pakiecie wymagałby rozbicia całego pakietu.
+
 ### Gdzie jest realne egzekwowanie
 
-Skoro MCP nie pisze, to sam z siebie niczego nie zablokuje — orzeka, a nie broni.
-Prawdziwym strażnikiem jest wtyczka: `ViolationWatcher` łapie zapisy do plików, które nie
-należą do AI, i pokazuje je w oknie **Turf → Naruszenia** plus balonik.
+Nigdzie — i lepiej to wiedzieć wprost. MCP nie pisze, więc sam z siebie niczego nie
+zablokuje: orzeka, a nie broni.
 
-Rozróżnienie idzie po tym, kto zgłosił zdarzenie VFS: zapis z edytora IDE ma niepustego
-requestora, zapis narzędziem z zewnątrz (Claude Code) — pustego. To **heurystyka**:
-edycja tym samym plikiem w innym zewnętrznym edytorze też się tu pokaże. Masowe zmiany
-(>20 plików naraz, czyli operacje gita) są pomijane.
+Wcześniej stał tu `ViolationWatcher`, który miał łapać zapisy z zewnątrz po tym, że
+zdarzenie VFS ma pustego requestora. To założenie nie trzymało się w praktyce — alarm
+milczał tam, gdzie miał krzyczeć, i odzywał się przy zwykłym odświeżeniu dysku. Fałszywy
+strażnik jest gorszy niż jego brak, bo usypia. Został usunięty razem z zakładką
+**Naruszenia**.
+
+Zostało to, co stoi na twardych faktach: przeładowanie manifestu po zmianie w `.turf` i
+przejęcie pliku utworzonego w IDE. Granica jest deklarowana w kontrakcie, a Ty widzisz
+w drzewie, który plik jest czyj, i czytasz diff.
 
 ## Instalacja
 
@@ -156,6 +179,9 @@ To repozytorium jest podzielone na kod człowieka i kod AI. Obowiązuje Cię kon
   nie czekasz na decyzję.
 - Plik bez wpisu traktuj jak plik użytkownika: nie edytujesz, ale możesz wnioskować
   na tych samych zasadach.
+- Teren wspólny (`shared`): piszesz bez wniosku, ale mało, w zastanej konwencji i ZAWSZE
+  zostawiając linię z adnotacją `@Claude` nad tym, co dopisałeś. Cudzych adnotacji nie
+  zdejmujesz. Większa zmiana idzie przez `turf_request`.
 ```
 
 ## Używanie
@@ -164,7 +190,7 @@ To repozytorium jest podzielone na kod człowieka i kod AI. Obowiązuje Cię kon
 Ustawienie jest per projekt i zapisuje się w manifeście, więc MCP widzi je natychmiast.
 
 **Nadawanie własności** — prawy przycisk w drzewie projektu → **Turf**: Oznacz jako moje /
-Oznacz jako AI / Wyczyść. Działa na zaznaczeniu wielu plików.
+Oznacz jako AI / Oznacz jako wspólne / Wyczyść. Działa na zaznaczeniu wielu plików.
 
 Zasięg zależy od trybu, a nazwa pozycji w menu mówi to wprost, żeby nie trzeba było zgadywać:
 
@@ -180,7 +206,9 @@ tej samej wysokości i grubości co w `class`/`enum`/`interface` — różni si�
 paletą, więc nie odstaje od reszty drzewa. Jest osobny wariant na ciemny motyw.
 
 Pliki **nieprzypisane są wyszarzone**. Twoje nie dostają nic — brak dekoracji znaczy, że
-wszystko jest jak być powinno.
+wszystko jest jak być powinno. **Wspólne też nie dostają ikony**, tylko podpowiedź pod
+kursorem: to dalej Twój kod, tylko z wpuszczonym AI, a trzecia ikona w drzewie szumiałaby
+bardziej, niż informowała.
 
 W trybie pakietowym te same reguły obejmują **katalogi**, bo to one są jednostką własności:
 pakiet AI dostaje czerwoną ikonę, nieprzypisany jest wyszarzony. Pliki w środku i tak noszą
@@ -192,10 +220,39 @@ od przełącznika: to nie jest oznaczenie AI, tylko sygnał, że plik czeka na T
 Skrót zmienisz w Settings → Keymap, szukając „Turf". Stan przełącznika, aktywny tryb i
 właściciela otwartego pliku — łącznie ze stanem „niczyj" — widać na pasku stanu.
 
-**Okno Turf** (dół): zakładka **Wnioski** — lista z powodem i diffem `było` / `ma być`,
-przyciski Przyjmij i Odrzuć (z komentarzem dla AI). Przyjęcie stosuje zmianę jako zwykłą
-edycję dokumentu, więc działa Ctrl+Z. Zakładka **Naruszenia** — zapisy z zewnątrz do
-nieswoich plików, z możliwością oddania pliku AI na miejscu.
+**Okno Turf** (dół): lista wniosków z powodem i diffem `było` / `ma być`, przyciski Przyjmij
+i Odrzuć (z komentarzem dla AI). Przyjęcie stosuje zmianę jako zwykłą edycję dokumentu, więc
+działa Ctrl+Z.
+
+### Zwijanie kodu AI w edytorze
+
+Kod poprzedzony znacznikiem jest **domyślnie zwinięty**, w dowolnym języku:
+
+```java
+@Claude                          →  ▍ 4 Claude's lines folded
+int suma(int a, int b) {
+    return a + b;
+}
+```
+
+Rozpoznawane znaczniki (lista sztywna): `@Claude`, `@Gemini`, `@GPT`, `@Codex`, `@Copilot`,
+`@AI`, `@GeneratedByAI`, `@AIGenerated`. Znacznik musi stać **sam w linii** nad deklaracją —
+z prefiksem komentarza albo bez, więc `@Claude` w Javie, `# @GPT` w Pythonie i `// @AI` w
+TypeScripcie działają tak samo. `@Claude` wtrącone w środku zdania nie liczy się.
+
+Wykrywanie idzie **po tekście, nie po PSI** — dzięki temu ta sama wtyczka działa w PyCharmie
+i WebStormie, gdzie nie ma parsera Javy. Koniec bloku ustalany jest dwoma sposobami: klamrą
+(z pominięciem klamer w napisach i komentarzach) albo wcięciem, gdy linia kończy się
+dwukropkiem. Deklaracja bez ciała to jedna linia — lepiej zwinąć za mało niż połknąć pół pliku.
+
+- **Zwinięty** blok pokazuje własny napis `12 Claude's lines folded` w kolorze Turfa, zamiast
+  platformowego `...`, które nie mówi ani ile, ani czyje. Nazwa bierze się z samego znacznika.
+- **Rozwinięty** blok ma podbarwione tło i etykietę `Claude's 12 Lines` nad sobą, żeby po
+  rozwinięciu dalej było widać, gdzie kończy się Twój kod.
+- **Przycisk przy lewej krawędzi** przełącza ten fold w obie strony. To fold Turfa —
+  platformowe zwijanie zostaje nietknięte i działa obok, na swoim skrócie.
+- **`Ctrl+Shift+H`** zwija i rozwija wszystkie bloki AI naraz, we wszystkich otwartych
+  plikach.
 
 Wniosek zapisuje treść linii z chwili złożenia. Jeśli plik zmienił się w międzyczasie,
 przyjęcie jest odrzucane z komunikatem zamiast nadpisać coś na ślepo.
@@ -213,6 +270,12 @@ przyjęcie jest odrzucane z komunikatem zamiast nadpisać coś na ślepo.
       "owner": "human",
       "since": "2026-07-28T00:00:00Z",
       "by": "IDE"
+    },
+    "src/main/java/com/example/Wspolny.java": {
+      "owner": "shared",
+      "since": "...",
+      "by": "IDE",
+      "override": true
     }
   },
   "dirs": {
@@ -228,7 +291,10 @@ przyjęcie jest odrzucane z komunikatem zamiast nadpisać coś na ślepo.
 `mode` to `"file"` albo `"package"`; brak pola znaczy `"file"`, więc stare manifesty
 działają bez konwersji. Czytana jest tylko warstwa odpowiadająca trybowi — w powyższym
 przykładzie `Main.java` należy do Ciebie z `dirs`, a wpis w `files` jest ignorowany do
-czasu przełączenia na tryb plikowy.
+czasu przełączenia na tryb plikowy. Jedyny wyjątek to wpis z `"override": true` — ten jest
+czytany także w trybie pakietowym i bije właściciela pakietu.
+
+`owner` przyjmuje `human`, `ai`, `shared` albo `none`.
 
 W `dirs` klucz `""` oznacza korzeń repozytorium. Wygrywa **najbliższy** pasujący katalog,
 więc reguły zagnieżdżone nie wymagają żadnej dodatkowej kolejności.
@@ -239,8 +305,14 @@ Implementacja globa jest ta sama po obu stronach (`**`, `*`, `?`).
 
 ## Znane ograniczenia
 
-- Wykrywanie naruszeń jest heurystyką po requestorze zdarzenia VFS, nie dowodem.
-- Automatyczne przejęcie nowego pliku stoi na tej samej heurystyce, tylko odwróconej.
+- Nic nie egzekwuje granicy technicznie — patrz wyżej. Wykrywanie naruszeń zostało
+  usunięte, bo dawało fałszywe poczucie ochrony.
+- Wykrywanie bloków AI jest heurystyką po tekście: liczy klamry i wcięcia, nie zna
+  składni. Znacznik nad czymś, co nie jest deklaracją, zwinie tylko tę jedną linię.
+  Adnotacje AI wewnątrz stringów albo w zakomentowanym kodzie też się złapią.
+- Stan zwinięcia bloku żyje tylko w otwartym edytorze — zamknięcie pliku wraca do
+  domyślnego zwinięcia.
+- Automatyczne przejęcie nowego pliku stoi na heurystyce requestora zdarzenia VFS.
   Plik utworzony innym zewnętrznym edytorem nie zostanie przejęty (pusty requestor), a
   wtyczka, która tworzy pliki przez API IDE, zrobi to za Ciebie. Pomijane są ścieżki,
   których i tak się nie oznacza: `.turf`, `.git`, `.idea`, `.gradle`, `build`, `out`,

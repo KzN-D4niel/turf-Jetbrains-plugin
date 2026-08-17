@@ -20,6 +20,12 @@ dependencies {
     intellijPlatform {
         create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.1")
     }
+    // Skaner blokow AI jest czysta logika na tekscie, wiec testuje sie go bez IDE.
+    testImplementation("junit:junit:4.13.2")
+}
+
+tasks.test {
+    useJUnit()
 }
 
 kotlin {
