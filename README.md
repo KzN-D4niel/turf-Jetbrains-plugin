@@ -287,10 +287,15 @@ indeksie 0. Wszystko, co decyduje o wyglądzie, jest brane stamtąd, skąd bierz
 Różni się więc wyłącznie kolorem. Numeracja przeskakuje na tym wierszu (np. z 14 na 20) — to
 normalne dla zwinięcia obejmującego całe linie.
 
-Warstwa leży na całej rynience, ale przepuszcza mysz wszędzie poza samymi licznikami
-(`contains` zwraca prawdę tylko nad nimi). Dzięki temu reszta rynienki działa jak zawsze, a
-najechanie i kliknięcie łapie się dokładnie na tym prostokącie, który się podświetla — nie na
-całym wierszu.
+Warstwa leży na całej rynience, ale przepuszcza mysz wszędzie poza polem licznika
+(`contains` zwraca prawdę tylko nad nim). Dzięki temu reszta rynienki działa jak zawsze, a
+najechanie i kliknięcie łapie się dokładnie na tym prostokącie, który się podświetla.
+
+Pole sięga przez całą szerokość rynienki, ale kończy się na `getWhitespaceSeparatorOffset()`
+— tam zaczyna swój pasek git, a przykrycie go podświetleniem zabierałoby informację. Wejście
+na pole wysyła rynience zdarzenie opuszczenia myszą: leży pod tą warstwą, więc nie wie, że
+mysz nad nią stoi, i swoje podpowiedzi (podkład pod ikonę, duch punktu wstrzymania) gasi
+dopiero wtedy.
 
 Zwijanie domyślne dotyczy **otwarcia pliku, nie pisania**. Kiedy dopisujesz `@Claude` nad
 metodą, blok zostaje rozwinięty — zwijanie tego, przy czym właśnie pracujesz, byłoby

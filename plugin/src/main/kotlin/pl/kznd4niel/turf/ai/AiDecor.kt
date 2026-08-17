@@ -165,9 +165,14 @@ class AiDecor(private val editor: Editor) : Disposable {
         val gutter = (editor as? EditorEx)?.gutterComponentEx ?: return emptyList()
         // Przy schowanych numerach linii kolumna ma zerowa szerokosc - wtedy licznik
         // idzie tam, gdzie zaczynaja sie ikony, zeby nie zniknal zupelnie.
-        val width = gutter.lineNumberAreaWidth
-        val x = if (width > 0) gutter.lineNumberAreaOffset else gutter.iconAreaOffset
-        val w = if (width > 0) width else metrics(editor).charWidth('0') * 3
+        val numbers = gutter.lineNumberAreaWidth
+        val x = if (numbers > 0) gutter.lineNumberAreaOffset else gutter.iconAreaOffset
+        val textRight =
+            if (numbers > 0) x + numbers else x + metrics(editor).charWidth('0') * 3
+
+        // Pole siega przez cala rynienke, ale konczy sie tam, gdzie zaczyna sie pasek
+        // zmian gita - jego przykrycie podswietleniem zabieraloby informacje.
+        val right = gutter.whitespaceSeparatorOffset.takeIf { it > textRight } ?: gutter.width
 
         return folds.entries.mapNotNull { (region, info) ->
             if (!region.isValid) return@mapNotNull null
@@ -175,7 +180,8 @@ class AiDecor(private val editor: Editor) : Disposable {
             Counter(
                 info.key,
                 info.block.lineCount.toString(),
-                Rectangle(x, y, w, region.heightInPixels),
+                Rectangle(x, y, right - x, region.heightInPixels),
+                textRight,
             )
         }
     }

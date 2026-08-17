@@ -18,8 +18,19 @@ import java.awt.geom.RoundRectangle2D
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 
-/** Licznik zwinietego bloku: numer linii, ktorego platforma w tym wierszu nie narysuje. */
-internal class Counter(val key: String, val text: String, val rect: Rectangle)
+/**
+ * Licznik zwinietego bloku: numer linii, ktorego platforma w tym wierszu nie narysuje.
+ *
+ * @param rect      pole klikalne i podswietlane - cala rynienka az do paska zmian gita.
+ * @param textRight prawa krawedz kolumny numerow; napis wyrownuje sie do niej, nie do
+ *                  prawej krawedzi pola, zeby stal dokladnie tam, gdzie inne numery.
+ */
+internal class Counter(
+    val key: String,
+    val text: String,
+    val rect: Rectangle,
+    val textRight: Int,
+)
 
 /**
  * Warstwa rysujaca liczbe zwinietych linii w kolumnie numerow linii.
@@ -70,9 +81,25 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
 
     private fun setHovered(c: Counter?) {
         if (hovered == c?.key) return
+        val taking = hovered == null && c != null
         hovered = c?.key
         toolTipText = c?.let { "${it.text} linii zwinietego kodu AI. Kliknij, zeby rozwinac." }
+        if (taking) releaseGutterHover()
         repaint()
+    }
+
+    /**
+     * Rynienka nie wie, ze mysz nad nia stoi, bo lezy pod ta warstwa - a swoje podpowiedzi
+     * (podklad pod ikone, duch punktu wstrzymania) gasi dopiero, gdy mysz z niej zjedzie.
+     * Bez tego jej podpowiedz zostawala zapalona pod naszym licznikiem.
+     */
+    private fun releaseGutterHover() {
+        val gutter = parent ?: return
+        gutter.dispatchEvent(
+            MouseEvent(
+                gutter, MouseEvent.MOUSE_EXITED, System.currentTimeMillis(), 0, -1, -1, 0, false
+            )
+        )
     }
 
     private fun cellAt(x: Int, y: Int): Counter? =
@@ -103,7 +130,7 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
                 g2.color = AiColors.ACCENT
                 g2.drawString(
                     c.text,
-                    c.rect.x + c.rect.width - fm.stringWidth(c.text),
+                    c.textRight - fm.stringWidth(c.text),
                     c.rect.y + editor.ascent,
                 )
             }
