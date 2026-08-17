@@ -245,9 +245,11 @@ i WebStormie, gdzie nie ma parsera Javy. Koniec bloku ustalany jest dwoma sposob
 (z pominięciem klamer w napisach i komentarzach) albo wcięciem, gdy linia kończy się
 dwukropkiem. Deklaracja bez ciała to jedna linia — lepiej zwinąć za mało niż połknąć pół pliku.
 
-- **Zwinięty** blok pokazuje własny napis `12 Claude's lines folded` w kolorze Turfa, na
-  wcięciu, na którym stał kod — zamiast platformowego `...`, które nie mówi ani ile, ani
-  czyje. Nazwa bierze się z samego znacznika.
+- **Zwinięty** blok pokazuje własny napis `12 Claude's lines folded` w kolorze Turfa —
+  zamiast platformowego `...`, które nie mówi ani ile, ani czyje. Nazwa bierze się z samego
+  znacznika. Napis stoi **zawsze przy lewej krawędzi**, niezależnie od zagnieżdżenia kodu,
+  który zastąpił: inaczej kolejne bloki tańczyłyby po szerokości ekranu i trudno byłoby je
+  złapać wzrokiem.
 - **Rozwinięty** blok ma podbarwione tło i etykietę `Claude's 12 Lines` nad sobą, żeby po
   rozwinięciu dalej było widać, gdzie kończy się Twój kod.
 - **Klikasz w sam napis**, w obie strony — dokładnie jak platformowy fold. Żadnych strzałek

@@ -265,7 +265,7 @@ class AiDecor(private val editor: Editor) : Disposable {
         )
 
         val label = "${AiMarkers.possessive(b.marker)} ${b.lineCount} Lines"
-        val inlay = editor.inlayModel.addBlockElement(start, false, true, 0, LabelRenderer(label, b.indent))
+        val inlay = editor.inlayModel.addBlockElement(start, false, true, 0, LabelRenderer(label))
         if (inlay != null) labels[inlay] = key
     }
 
@@ -313,21 +313,17 @@ class AiDecor(private val editor: Editor) : Disposable {
 }
 
 /**
- * Napis w miejscu zwinietego kodu. Stoi na wcieciu deklaracji, ma wlasna podkladke i
- * klika sie go tak jak platformowe "...".
+ * Napis w miejscu zwinietego kodu. Stoi zawsze przy lewej krawedzi, niezaleznie od
+ * zagniezdzenia kodu, ktory zastapil - inaczej kolejne bloki tanczylyby po szerokosci
+ * ekranu i trudno bylo je zlapac wzrokiem. Klika sie go tak jak platformowe "...".
  */
 private class AiFoldRenderer(private val block: AiBlock) : CustomFoldRegionRenderer {
 
     private fun text() = "${block.lineCount} ${AiMarkers.possessive(block.marker)} lines folded"
 
-    private fun indentPx(editor: Editor) = metrics(editor).charWidth(' ') * block.indent
-
     private fun textWidth(editor: Editor) = metrics(editor).stringWidth(text()) + 2 * PAD
 
-    override fun calcWidthInPixels(region: CustomFoldRegion): Int {
-        val editor = region.editor
-        return indentPx(editor) + textWidth(editor)
-    }
+    override fun calcWidthInPixels(region: CustomFoldRegion): Int = textWidth(region.editor)
 
     override fun calcHeightInPixels(region: CustomFoldRegion): Int = region.editor.lineHeight
 
@@ -340,7 +336,7 @@ private class AiFoldRenderer(private val block: AiBlock) : CustomFoldRegionRende
         val editor = region.editor
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
 
-        val x = target.x.toFloat() + indentPx(editor)
+        val x = target.x.toFloat()
         val y = target.y.toFloat()
         val h = target.height.toFloat()
 
@@ -356,32 +352,30 @@ private class AiFoldRenderer(private val block: AiBlock) : CustomFoldRegionRende
     /** Klikalny jest sam napis, nie cala szerokosc linii. */
     fun hit(region: CustomFoldRegion, p: Point): Boolean {
         val loc = region.location ?: return false
-        val x = loc.x + indentPx(region.editor)
-        return p.x >= x && p.x < x + textWidth(region.editor) &&
+        return p.x >= loc.x && p.x < loc.x + textWidth(region.editor) &&
             p.y >= loc.y && p.y < loc.y + region.heightInPixels
     }
 }
 
-/** Etykieta nad rozwinietym blokiem. Klikniecie w nia zwija blok z powrotem. */
-private class LabelRenderer(private val label: String, private val indent: Int) :
-    EditorCustomElementRenderer {
-
-    private fun indentPx(inlay: Inlay<*>) = metrics(inlay.editor).charWidth(' ') * indent
+/**
+ * Etykieta nad rozwinietym blokiem, przy lewej krawedzi - tak samo jak napis na foldzie,
+ * zeby jedno przechodzilo w drugie w tym samym miejscu. Klikniecie zwija blok z powrotem.
+ */
+private class LabelRenderer(private val label: String) : EditorCustomElementRenderer {
 
     override fun calcWidthInPixels(inlay: Inlay<*>): Int =
-        indentPx(inlay) + metrics(inlay.editor).stringWidth(label) + 2 * PAD
+        metrics(inlay.editor).stringWidth(label) + 2 * PAD
 
     override fun paint(inlay: Inlay<*>, g: Graphics, region: Rectangle, attributes: TextAttributes) {
         val editor = inlay.editor
         (g as? Graphics2D)?.setRenderingHint(
             RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON
         )
-        val x = region.x + indentPx(inlay)
         g.color = AiColors.BACKGROUND
-        g.fillRect(x, region.y, region.width - indentPx(inlay), region.height)
+        g.fillRect(region.x, region.y, region.width, region.height)
         g.font = italic(editor)
         val fm = g.fontMetrics
         g.color = AiColors.ACCENT
-        g.drawString(label, x + PAD, region.y + (region.height - fm.height) / 2 + fm.ascent)
+        g.drawString(label, region.x + PAD, region.y + (region.height - fm.height) / 2 + fm.ascent)
     }
 }
