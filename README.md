@@ -226,7 +226,7 @@ działa Ctrl+Z.
 
 ### Zwijanie kodu AI w edytorze
 
-Kod poprzedzony znacznikiem jest **domyślnie zwinięty**, w dowolnym języku:
+Kod poprzedzony znacznikiem jest **zwinięty przy otwarciu pliku**, w dowolnym języku:
 
 ```java
 @Claude                          →  ▍ 4 Claude's lines folded
@@ -245,14 +245,22 @@ i WebStormie, gdzie nie ma parsera Javy. Koniec bloku ustalany jest dwoma sposob
 (z pominięciem klamer w napisach i komentarzach) albo wcięciem, gdy linia kończy się
 dwukropkiem. Deklaracja bez ciała to jedna linia — lepiej zwinąć za mało niż połknąć pół pliku.
 
-- **Zwinięty** blok pokazuje własny napis `12 Claude's lines folded` w kolorze Turfa, zamiast
-  platformowego `...`, które nie mówi ani ile, ani czyje. Nazwa bierze się z samego znacznika.
+- **Zwinięty** blok pokazuje własny napis `12 Claude's lines folded` w kolorze Turfa, na
+  wcięciu, na którym stał kod — zamiast platformowego `...`, które nie mówi ani ile, ani
+  czyje. Nazwa bierze się z samego znacznika.
 - **Rozwinięty** blok ma podbarwione tło i etykietę `Claude's 12 Lines` nad sobą, żeby po
   rozwinięciu dalej było widać, gdzie kończy się Twój kod.
-- **Przycisk przy lewej krawędzi** przełącza ten fold w obie strony. To fold Turfa —
-  platformowe zwijanie zostaje nietknięte i działa obok, na swoim skrócie.
+- **Klikasz w sam napis**, w obie strony — dokładnie jak platformowy fold. Żadnych strzałek
+  w rynience: nad napisem kursor zmienia się w łapkę i to wystarczy. Platformowe zwijanie
+  zostaje nietknięte i działa obok, na swoim skrócie.
 - **`Ctrl+Shift+H`** zwija i rozwija wszystkie bloki AI naraz, we wszystkich otwartych
   plikach.
+
+Zwijanie domyślne dotyczy **otwarcia pliku, nie pisania**. Kiedy dopisujesz `@Claude` nad
+metodą, blok zostaje rozwinięty — zwijanie tego, przy czym właśnie pracujesz, byłoby
+wyrywaniem kartki z ręki. Zwinie się przy następnym otwarciu pliku. Ręcznie ustawiony stan
+przeżywa edycje wyżej w pliku, bo blok rozpoznawany jest po treści deklaracji, nie po
+numerze linii.
 
 Wniosek zapisuje treść linii z chwili złożenia. Jeśli plik zmienił się w międzyczasie,
 przyjęcie jest odrzucane z komunikatem zamiast nadpisać coś na ślepo.
@@ -311,7 +319,8 @@ Implementacja globa jest ta sama po obu stronach (`**`, `*`, `?`).
   składni. Znacznik nad czymś, co nie jest deklaracją, zwinie tylko tę jedną linię.
   Adnotacje AI wewnątrz stringów albo w zakomentowanym kodzie też się złapią.
 - Stan zwinięcia bloku żyje tylko w otwartym edytorze — zamknięcie pliku wraca do
-  domyślnego zwinięcia.
+  domyślnego zwinięcia. Dwa bloki o identycznej linii deklaracji dzielą jeden klucz i są
+  rozróżniane kolejnością, więc przestawienie ich zamienia im stan.
 - Automatyczne przejęcie nowego pliku stoi na heurystyce requestora zdarzenia VFS.
   Plik utworzony innym zewnętrznym edytorem nie zostanie przejęty (pusty requestor), a
   wtyczka, która tworzy pliki przez API IDE, zrobi to za Ciebie. Pomijane są ścieżki,

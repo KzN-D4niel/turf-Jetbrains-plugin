@@ -16,9 +16,9 @@
         Poza wlasnoscia czlowieka i AI jest <b>teren wspolny</b>: AI moze tam dopisywac
         drobiazgi bez wniosku, ale ma zostawiac adnotacje znacznikowa.<br/><br/>
         Kod pod znacznikiem (<code>@Claude</code>, <code>@GPT</code>, <code>@AI</code> i
-        podobne, w dowolnym jezyku) jest domyslnie zwiniety pod wlasnym napisem
+        podobne, w dowolnym jezyku) jest przy otwarciu pliku zwiniety pod wlasnym napisem
         "12 Claude's lines folded". Po rozwinieciu blok ma podbarwione tlo i etykiete nad
-        soba, a przycisk przy krawedzi edytora zwija go z powrotem.
+        soba. Jedno i drugie przelacza sie klikaniem w sam napis, tak jak platformowy fold.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
