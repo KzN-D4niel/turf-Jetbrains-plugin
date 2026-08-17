@@ -2,6 +2,7 @@ package pl.kznd4niel.turf
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.Service
@@ -10,6 +11,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import pl.kznd4niel.turf.ai.AiFoldStyle
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
@@ -67,6 +69,20 @@ class TurfService(private val project: Project) {
         foldAiBlocks = !foldAiBlocks
         fireChanged()
         return foldAiBlocks
+    }
+
+    /** Wyglad zwinietego bloku. Sprawa czysto wizualna, wiec nie manifest, tylko IDE. */
+    @Volatile
+    var foldStyle: AiFoldStyle =
+        AiFoldStyle.from(PropertiesComponent.getInstance(project).getValue(FOLD_STYLE_KEY))
+        private set
+
+    fun toggleFoldStyle(): AiFoldStyle {
+        val next = if (foldStyle == AiFoldStyle.TEXT) AiFoldStyle.COUNTER else AiFoldStyle.TEXT
+        foldStyle = next
+        PropertiesComponent.getInstance(project).setValue(FOLD_STYLE_KEY, next.id)
+        fireChanged()
+        return next
     }
 
     fun addListener(r: Runnable) = listeners.add(r)
@@ -359,6 +375,8 @@ class TurfService(private val project: Project) {
     }
 
     private companion object {
+        const val FOLD_STYLE_KEY = "turf.ai.foldStyle"
+
         val IGNORED = listOf(
             ".turf/", ".git/", ".idea/", ".gradle/",
             "build/", "out/", "target/", "node_modules/",

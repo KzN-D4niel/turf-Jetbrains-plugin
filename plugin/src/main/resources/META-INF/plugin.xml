@@ -19,6 +19,8 @@
         podobne, w dowolnym jezyku) jest przy otwarciu pliku zwiniety pod wlasnym napisem
         "12 Claude's lines folded". Po rozwinieciu blok ma podbarwione tlo i etykiete nad
         soba. Jedno i drugie przelacza sie klikaniem w sam napis, tak jak platformowy fold.
+        Zwiniety blok moze tez nie pokazywac w kodzie niczego poza kolorowa liczba linii
+        przy numerze linii - do wyboru per projekt.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -55,6 +57,13 @@
                 description="Przelacza zwijanie kodu oznaczonego znacznikiem AI">
             <add-to-group group-id="ViewMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift H"/>
+        </action>
+
+        <action id="Turf.ToggleFoldStyle"
+                class="pl.kznd4niel.turf.ai.ToggleFoldStyleAction"
+                text="Turf: Wyglad zwinietego bloku AI"
+                description="Napis w kodzie albo sama liczba zwinietych linii w rynience">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
         </action>
 
         <group id="Turf.Group" text="Turf" popup="true">

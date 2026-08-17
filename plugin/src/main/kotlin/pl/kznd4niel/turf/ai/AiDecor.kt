@@ -1,6 +1,8 @@
 package pl.kznd4niel.turf.ai
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.CustomFoldRegion
 import com.intellij.openapi.editor.CustomFoldRegionRenderer
@@ -16,6 +18,7 @@ import com.intellij.openapi.editor.event.EditorMouseListener
 import com.intellij.openapi.editor.event.EditorMouseMotionListener
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.editor.ex.FoldingModelEx
+import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.editor.markup.RangeHighlighter
@@ -24,7 +27,9 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
 import com.intellij.ui.JBColor
 import com.intellij.util.Alarm
+import com.intellij.util.ui.JBUI
 import pl.kznd4niel.turf.TurfService
+import java.awt.Component
 import java.awt.Cursor
 import java.awt.Font
 import java.awt.FontMetrics
@@ -36,6 +41,11 @@ import java.awt.RenderingHints
 import java.awt.event.MouseEvent
 import java.awt.geom.Rectangle2D
 import java.awt.geom.RoundRectangle2D
+import javax.swing.Icon
+import javax.swing.JLabel
+
+/** Do mierzenia napisu licznika, zanim jest gdzie go narysowac. */
+private val MEASURE = JLabel()
 
 /**
  * Jeden kolor na wszystkie znaczniki - rozroznia je napis, nie barwa.
@@ -173,7 +183,7 @@ class AiDecor(private val editor: Editor) : Disposable {
     }
 
     private fun foldAt(p: Point): CustomFoldRegion? = folds.keys.firstOrNull { region ->
-        region.isValid && (region.renderer as? AiFoldRenderer)?.hit(region, p) == true
+        region.isValid && (region.renderer as? ClickableFold)?.hit(region, p) == true
     }
 
     private fun labelAt(p: Point): Inlay<*>? = labels.keys.firstOrNull { inlay ->
@@ -191,9 +201,11 @@ class AiDecor(private val editor: Editor) : Disposable {
         if (editor.isDisposed || rebuilding) return
 
         val doc = editor.document
+        val svc = editor.project?.service<TurfService>()
         val found = blocks().filter { it.endLine < doc.lineCount }
         val keys = keysOf(found)
-        val global = editor.project?.service<TurfService>()?.foldAiBlocks ?: true
+        val style = svc?.foldStyle ?: AiFoldStyle.TEXT
+        val global = svc?.foldAiBlocks ?: true
         val globalChanged = appliedGlobal != null && appliedGlobal != global
 
         for (key in keys) {
@@ -211,7 +223,7 @@ class AiDecor(private val editor: Editor) : Disposable {
         appliedGlobal = global
         firstScan = false
 
-        val sig = found.indices.joinToString(";") {
+        val sig = style.id + "|" + found.indices.joinToString(";") {
             "${found[it].startLine}-${found[it].endLine}:${collapsed[keys[it]]}"
         }
         if (sig == signature) return
@@ -224,7 +236,7 @@ class AiDecor(private val editor: Editor) : Disposable {
             for ((i, b) in found.withIndex()) {
                 if (collapsed[keys[i]] == true) toFold.add(b to keys[i]) else expand(b, keys[i])
             }
-            if (toFold.isNotEmpty()) fold(toFold)
+            if (toFold.isNotEmpty()) fold(toFold, style)
         } finally {
             rebuilding = false
         }
@@ -241,16 +253,37 @@ class AiDecor(private val editor: Editor) : Disposable {
         }
     }
 
-    private fun fold(list: List<Pair<AiBlock, String>>) {
+    private fun fold(list: List<Pair<AiBlock, String>>, style: AiFoldStyle) {
         val model = editor.foldingModel as? FoldingModelEx ?: return
+        val counters = ArrayList<Pair<AiBlock, String>>()
         model.runBatchFoldingOperation({
             for ((b, key) in list) {
-                val region = model.addCustomLinesFolding(b.startLine, b.endLine, AiFoldRenderer(b))
-                    ?: continue
+                val renderer =
+                    if (style == AiFoldStyle.COUNTER) EmptyFoldRenderer else AiFoldRenderer(b)
+                val region = model.addCustomLinesFolding(b.startLine, b.endLine, renderer) ?: continue
                 folds[region] = key
+                if (style == AiFoldStyle.COUNTER) counters.add(b to key)
             }
         }, true, false)
+        // Rynienka rysuje sie poza operacja na foldach, wiec liczniki dokladamy po niej.
+        counters.forEach { (b, key) -> counter(b, key) }
     }
+
+    /**
+     * Liczba zwinietych linii przy numerze linii. W tym stylu w samym kodzie nie ma nic,
+     * wiec to ona jest jedynym sladem bloku - i jedynym miejscem, w ktore sie klika.
+     */
+    private fun counter(b: AiBlock, key: String) {
+        val offset = editor.document.getLineStartOffset(b.startLine)
+        val hl = editor.markupModel.addRangeHighlighter(
+            offset, offset, HighlighterLayer.CARET_ROW + 1, null, HighlighterTargetArea.LINES_IN_RANGE
+        )
+        hl.gutterIconRenderer = CounterGutterIcon(b, key, this)
+        highlighters.add(hl)
+    }
+
+    /** Wolane z ikony w rynience - stad publiczne. */
+    internal fun expandFromGutter(key: String) = toggle(key)
 
     private fun expand(b: AiBlock, key: String) {
         val doc = editor.document
@@ -322,7 +355,7 @@ class AiDecor(private val editor: Editor) : Disposable {
  * zagniezdzenia kodu, ktory zastapil - inaczej kolejne bloki tanczylyby po szerokosci
  * ekranu i trudno bylo je zlapac wzrokiem. Klika sie go tak jak platformowe "...".
  */
-private class AiFoldRenderer(private val block: AiBlock) : CustomFoldRegionRenderer {
+private class AiFoldRenderer(private val block: AiBlock) : CustomFoldRegionRenderer, ClickableFold {
 
     private fun text() = "${block.lineCount} ${AiMarkers.possessive(block.marker)} lines folded"
 
@@ -355,11 +388,96 @@ private class AiFoldRenderer(private val block: AiBlock) : CustomFoldRegionRende
     }
 
     /** Klikalny jest sam napis, nie cala szerokosc linii. */
-    fun hit(region: CustomFoldRegion, p: Point): Boolean {
+    override fun hit(region: CustomFoldRegion, p: Point): Boolean {
         val loc = region.location ?: return false
         return p.x >= loc.x && p.x < loc.x + textWidth(region.editor) &&
             p.y >= loc.y && p.y < loc.y + region.heightInPixels
     }
+}
+
+/** Fold, ktory da sie rozwinac klikajac w to, co widac. */
+private interface ClickableFold {
+    fun hit(region: CustomFoldRegion, p: Point): Boolean
+}
+
+/**
+ * Zwiniety blok w stylu licznikowym nie rysuje w kodzie nic - caly jest w rynience.
+ * Klikalny zostaje mimo to: gdyby ikona w rynience gdzies nie doszla, blok nie moze stac
+ * sie nierozwijalny.
+ */
+private object EmptyFoldRenderer : CustomFoldRegionRenderer, ClickableFold {
+    override fun calcWidthInPixels(region: CustomFoldRegion): Int =
+        metrics(region.editor).charWidth(' ') * 3
+
+    override fun calcHeightInPixels(region: CustomFoldRegion): Int = region.editor.lineHeight
+
+    override fun paint(
+        region: CustomFoldRegion,
+        g: Graphics2D,
+        target: Rectangle2D,
+        attributes: TextAttributes,
+    ) = Unit
+
+    override fun hit(region: CustomFoldRegion, p: Point): Boolean {
+        val loc = region.location ?: return false
+        return p.x >= loc.x && p.x < loc.x + region.widthInPixels &&
+            p.y >= loc.y && p.y < loc.y + region.heightInPixels
+    }
+}
+
+/** Sama liczba zwinietych linii, w kolorze Turfa, obok numeru linii. */
+private class CountIcon(count: Int) : Icon {
+
+    private val text = count.toString()
+    private val font = JBUI.Fonts.smallFont().asBold()
+    private val width = MEASURE.getFontMetrics(font).stringWidth(text)
+
+    override fun getIconWidth(): Int = maxOf(JBUI.scale(12), width + JBUI.scale(4))
+
+    override fun getIconHeight(): Int = JBUI.scale(14)
+
+    override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
+        val g2 = g.create() as Graphics2D
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g2.font = font
+            g2.color = AiColors.ACCENT
+            val fm = g2.fontMetrics
+            g2.drawString(
+                text,
+                x + (iconWidth - fm.stringWidth(text)) / 2,
+                y + (iconHeight - fm.height) / 2 + fm.ascent,
+            )
+        } finally {
+            g2.dispose()
+        }
+    }
+}
+
+/** Licznik w rynience jest w tym stylu jedynym przyciskiem, wiec to on rozwija blok. */
+private class CounterGutterIcon(
+    private val block: AiBlock,
+    private val key: String,
+    private val decor: AiDecor,
+) : GutterIconRenderer() {
+
+    private val icon = CountIcon(block.lineCount)
+
+    override fun getIcon(): Icon = icon
+
+    override fun getTooltipText(): String =
+        "${block.lineCount} linii od ${block.marker}. Kliknij, zeby rozwinac."
+
+    override fun getAlignment(): Alignment = Alignment.LEFT
+
+    override fun getClickAction(): AnAction = object : AnAction() {
+        override fun actionPerformed(e: AnActionEvent) = decor.expandFromGutter(key)
+    }
+
+    override fun equals(other: Any?): Boolean =
+        other is CounterGutterIcon && other.key == key && other.block == block
+
+    override fun hashCode(): Int = key.hashCode() * 31 + block.hashCode()
 }
 
 /**

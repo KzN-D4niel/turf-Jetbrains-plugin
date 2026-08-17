@@ -258,6 +258,19 @@ dwukropkiem. Deklaracja bez ciała to jedna linia — lepiej zwinąć za mało n
 - **`Ctrl+Shift+H`** zwija i rozwija wszystkie bloki AI naraz, we wszystkich otwartych
   plikach.
 
+**Dwa wyglądy zwinięcia** — **View → Turf: Wygląd zwiniętego bloku AI** przełącza między nimi.
+Ustawienie jest per projekt i przeżywa restart IDE.
+
+| styl | co widać |
+|---|---|
+| `napis w kodzie` (domyślny) | `12 Claude's lines folded` w miejscu kodu |
+| `liczba w rynience` | w kodzie **nic**, tylko kolorowa liczba zwiniętych linii przy numerze linii |
+
+Drugi jest dla czytania własnego kodu bez przypominania na każdym kroku, że obok siedzi model:
+zwinięty blok zostawia pustą linię, a jedynym śladem jest pomarańczowe `12` w rynience. Klika
+się je tak samo — a gdyby ikona w rynience gdzieś nie doszła, sam wiersz też pozostaje
+klikalny, żeby blok nie stał się nierozwijalny.
+
 Zwijanie domyślne dotyczy **otwarcia pliku, nie pisania**. Kiedy dopisujesz `@Claude` nad
 metodą, blok zostaje rozwinięty — zwijanie tego, przy czym właśnie pracujesz, byłoby
 wyrywaniem kartki z ręki. Zwinie się przy następnym otwarciu pliku. Ręcznie ustawiony stan

@@ -64,3 +64,28 @@ class ToggleAiFoldsAction : AnAction() {
     private fun decorOf(e: AnActionEvent): AiDecor? =
         e.getData(CommonDataKeys.EDITOR)?.let { AiDecor.of(it) }
 }
+
+/**
+ * Przelacza wyglad zwinietego bloku: napis w kodzie albo sama liczba linii w rynience.
+ * Ustawienie jest per projekt i przezywa restart IDE.
+ */
+class ToggleFoldStyleAction : AnAction() {
+
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+
+    override fun update(e: AnActionEvent) {
+        val project = e.project
+        e.presentation.isEnabled = project != null
+        if (project == null || project.isDisposed) return
+        e.presentation.text = when (project.service<TurfService>().foldStyle) {
+            AiFoldStyle.TEXT -> "Turf: Zwiniete bloki jako liczba w rynience"
+            AiFoldStyle.COUNTER -> "Turf: Zwiniete bloki jako napis w kodzie"
+        }
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val next = project.service<TurfService>().toggleFoldStyle()
+        WindowManager.getInstance().getStatusBar(project)?.info = "Turf: fold AI - ${next.label}"
+    }
+}
