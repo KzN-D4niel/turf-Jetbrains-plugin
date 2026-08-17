@@ -260,34 +260,18 @@ class AiDecor(private val editor: Editor) : Disposable {
 
     private fun fold(list: List<Pair<AiBlock, String>>, style: AiFoldStyle) {
         val model = editor.foldingModel as? FoldingModelEx ?: return
-        val counters = ArrayList<Pair<AiBlock, String>>()
         model.runBatchFoldingOperation({
             for ((b, key) in list) {
                 val renderer =
-                    if (style == AiFoldStyle.COUNTER) EmptyFoldRenderer else AiFoldRenderer(b)
+                    if (style == AiFoldStyle.COUNTER) CounterFoldRenderer(b, key, this)
+                    else AiFoldRenderer(b)
                 val region = model.addCustomLinesFolding(b.startLine, b.endLine, renderer) ?: continue
                 folds[region] = key
-                if (style == AiFoldStyle.COUNTER) counters.add(b to key)
             }
         }, true, false)
-        // Rynienka rysuje sie poza operacja na foldach, wiec liczniki dokladamy po niej.
-        counters.forEach { (b, key) -> counter(b, key) }
     }
 
-    /**
-     * Liczba zwinietych linii przy numerze linii. W tym stylu w samym kodzie nie ma nic,
-     * wiec to ona jest jedynym sladem bloku - i jedynym miejscem, w ktore sie klika.
-     */
-    private fun counter(b: AiBlock, key: String) {
-        val offset = editor.document.getLineStartOffset(b.startLine)
-        val hl = editor.markupModel.addRangeHighlighter(
-            offset, offset, HighlighterLayer.CARET_ROW + 1, null, HighlighterTargetArea.LINES_IN_RANGE
-        )
-        hl.gutterIconRenderer = CounterGutterIcon(b, key, this)
-        highlighters.add(hl)
-    }
-
-    /** Wolane z ikony w rynience - stad publiczne. */
+    /** Wolane z ikony w rynience - stad widoczne poza klasa. */
     internal fun expandFromGutter(key: String) = toggle(key)
 
     private fun expand(b: AiBlock, key: String) {
@@ -415,11 +399,23 @@ private interface ClickableFold {
 }
 
 /**
- * Zwiniety blok w stylu licznikowym nie rysuje w kodzie nic - caly jest w rynience.
- * Klikalny zostaje mimo to: gdyby ikona w rynience gdzies nie doszla, blok nie moze stac
- * sie nierozwijalny.
+ * Zwiniety blok w stylu licznikowym nie rysuje w kodzie nic - caly slad to liczba przy
+ * numerach linii.
+ *
+ * Ikona idzie przez renderer, a nie przez highlighter na linii, bo wiersz zwinietego
+ * bloku nie ma juz numeru linii ani ikon z podswietlen: platforma pyta o rynienke
+ * wylacznie ten renderer. Highlighter na tej linii nie rysowal nic i blok znikal bez
+ * sladu poza przeskokiem numeracji.
+ *
+ * Sam wiersz zostaje klikalny na szerokosc trzech znakow, zeby blok nie stal sie
+ * nierozwijalny, gdyby ikona gdzies nie doszla.
  */
-private object EmptyFoldRenderer : CustomFoldRegionRenderer, ClickableFold {
+private class CounterFoldRenderer(
+    private val block: AiBlock,
+    private val key: String,
+    private val decor: AiDecor,
+) : CustomFoldRegionRenderer, ClickableFold {
+
     override fun calcWidthInPixels(region: CustomFoldRegion): Int =
         metrics(region.editor).charWidth(' ') * 3
 
@@ -431,6 +427,9 @@ private object EmptyFoldRenderer : CustomFoldRegionRenderer, ClickableFold {
         target: Rectangle2D,
         attributes: TextAttributes,
     ) = Unit
+
+    override fun calcGutterIconRenderer(region: CustomFoldRegion): GutterIconRenderer =
+        CounterGutterIcon(block, key, decor)
 
     override fun hit(region: CustomFoldRegion, p: Point): Boolean {
         val loc = region.location ?: return false

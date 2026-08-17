@@ -269,8 +269,13 @@ Ustawienie jest per projekt i przeżywa restart IDE.
 
 Drugi jest dla czytania własnego kodu bez przypominania na każdym kroku, że obok siedzi model:
 zwinięty blok zostawia pustą linię, a jedynym śladem jest pomarańczowe `12` w rynience. Klika
-się je tak samo — a gdyby ikona w rynience gdzieś nie doszła, sam wiersz też pozostaje
-klikalny, żeby blok nie stał się nierozwijalny.
+się je tak samo — a gdyby ikona gdzieś nie doszła, sam wiersz też pozostaje klikalny, żeby
+blok nie stał się nierozwijalny.
+
+Liczba idzie przez renderer folda, a nie przez znacznik na linii: wiersz zwiniętego bloku nie
+ma już własnego numeru linii ani ikon z podświetleń, więc platforma pyta o rynienkę wyłącznie
+renderer. Numeracja przeskakuje na tym wierszu (np. z 14 na 20) i tak zostaje — to normalne
+dla zwinięcia obejmującego całe linie.
 
 Zwijanie domyślne dotyczy **otwarcia pliku, nie pisania**. Kiedy dopisujesz `@Claude` nad
 metodą, blok zostaje rozwinięty — zwijanie tego, przy czym właśnie pracujesz, byłoby
