@@ -115,6 +115,9 @@ class AiDecor(private val editor: Editor) : Disposable {
     private var rebuilding = false
     private var handCursor = false
 
+    /** Blok, nad ktorego licznikiem stoi teraz mysz. Null, gdy nad zadnym. */
+    private var hovered: String? = null
+
     init {
         editor.document.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) = schedule(DEBOUNCE_MS)
@@ -129,6 +132,10 @@ class AiDecor(private val editor: Editor) : Disposable {
 
         editor.addEditorMouseListener(object : EditorMouseListener {
             override fun mouseClicked(e: EditorMouseEvent) = onClick(e)
+
+            // Wyjechanie poza edytor nie generuje juz ruchu myszy, wiec bez tego
+            // podswietlenie zostawaloby zapalone po opuszczeniu rynienki.
+            override fun mouseExited(e: EditorMouseEvent) = setHovered(null)
         }, this)
 
         editor.addEditorMouseMotionListener(object : EditorMouseMotionListener {
@@ -171,6 +178,8 @@ class AiDecor(private val editor: Editor) : Disposable {
     }
 
     private fun onMove(e: EditorMouseEvent) {
+        setHovered(keyAtLine(e.logicalPosition.line))
+
         val p = e.mouseEvent.point
         val over = foldAt(p) != null || labelAt(p) != null
         if (over == handCursor) return
@@ -182,6 +191,28 @@ class AiDecor(private val editor: Editor) : Disposable {
             if (over) Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) else null,
         )
     }
+
+    /**
+     * Blok zwiniety na danej linii. W rynience nie ma wspolrzednej x, ktora cokolwiek
+     * znaczy, wiec podswietlenie idzie po samym wierszu.
+     */
+    private fun keyAtLine(line: Int): String? {
+        val doc = editor.document
+        return folds.entries.firstOrNull { (region, _) ->
+            region.isValid &&
+                line >= doc.getLineNumber(region.startOffset) &&
+                line <= doc.getLineNumber(region.endOffset)
+        }?.value
+    }
+
+    private fun setHovered(key: String?) {
+        if (hovered == key) return
+        hovered = key
+        (editor as? EditorEx)?.gutterComponentEx?.repaint()
+    }
+
+    /** Czyta to ikona licznika przy kazdym rysowaniu - stad widoczne poza klasa. */
+    internal fun isHovered(key: String): Boolean = hovered == key
 
     private fun foldAt(p: Point): CustomFoldRegion? = folds.keys.firstOrNull { region ->
         region.isValid && (region.renderer as? ClickableFold)?.hit(region, p) == true
@@ -442,13 +473,19 @@ private class CounterFoldRenderer(
  * przyciasna naumyslnie: ikona idzie wtedy do lewej krawedzi swojego paska, czyli tak
  * blisko kolumny numerow, jak platforma pozwala.
  */
-private class CountIcon(private val text: String, editor: Editor) : Icon {
+private class CountIcon(
+    private val text: String,
+    editor: Editor,
+    /** Czytane przy kazdym rysowaniu, bo ikona zyje dluzej niz jedno najechanie mysza. */
+    private val hovered: () -> Boolean,
+) : Icon {
 
     private val font: Font = editor.colorsScheme.getFont(EditorFontType.PLAIN)
     private val fm: FontMetrics = editor.contentComponent.getFontMetrics(font)
     private val height: Int = editor.lineHeight
+    private val inset: Int = JBUI.scale(2)
 
-    override fun getIconWidth(): Int = fm.stringWidth(text) + JBUI.scale(2)
+    override fun getIconWidth(): Int = fm.stringWidth(text) + 2 * inset
 
     override fun getIconHeight(): Int = height
 
@@ -456,10 +493,20 @@ private class CountIcon(private val text: String, editor: Editor) : Icon {
         val g2 = g.create() as Graphics2D
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            // Podkladka tylko pod mysza: w rynience nie ma nic, w co dalo by sie wcelowac
+            // wzrokiem, wiec to ona mowi "ta liczba jest przyciskiem".
+            if (hovered()) {
+                g2.color = AiColors.BACKGROUND
+                g2.fill(
+                    RoundRectangle2D.Float(
+                        x.toFloat(), y + 1f, iconWidth.toFloat(), height - 2f, 6f, 6f
+                    )
+                )
+            }
             g2.font = font
             g2.color = AiColors.ACCENT
             val m = g2.fontMetrics
-            g2.drawString(text, x, y + (height - m.height) / 2 + m.ascent)
+            g2.drawString(text, x + inset, y + (height - m.height) / 2 + m.ascent)
         } finally {
             g2.dispose()
         }
@@ -474,7 +521,7 @@ private class CounterGutterIcon(
     editor: Editor,
 ) : GutterIconRenderer() {
 
-    private val icon = CountIcon(block.lineCount.toString(), editor)
+    private val icon = CountIcon(block.lineCount.toString(), editor) { decor.isHovered(key) }
 
     override fun getIcon(): Icon = icon
 
