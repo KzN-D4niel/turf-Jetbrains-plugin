@@ -272,18 +272,25 @@ zwinięty blok zostawia pustą linię, a jedynym śladem jest pomarańczowe `12`
 się je tak samo — a gdyby ikona gdzieś nie doszła, sam wiersz też pozostaje klikalny, żeby
 blok nie stał się nierozwijalny.
 
-Liczba idzie przez renderer folda, a nie przez znacznik na linii: wiersz zwiniętego bloku nie
-ma już własnego numeru linii ani ikon z podświetleń, więc platforma pyta o rynienkę wyłącznie
-renderer. Numeracja przeskakuje na tym wierszu (np. z 14 na 20) i tak zostaje — to normalne
-dla zwinięcia obejmującego całe linie.
+Liczba stoi **w kolumnie numerów linii**, w tym wierszu, w którym platforma numeru nie
+narysuje. Rynienki nie da się poprosić ani o numer w wierszu custom-folda, ani o numer w innym
+kolorze, więc `AiGutterNumbers` rysuje go sam — na wierzchu rynienki, jako jej dziecko o
+indeksie 0. Wszystko, co decyduje o wyglądzie, jest brane stamtąd, skąd bierze to platforma
+(odtworzone z `EditorGutterComponentImpl`):
 
-Czcionka, jej rozmiar i wysokość wiersza są brane z edytora, dokładnie tak jak przy numerach
-linii, więc od numeru różni ją tylko barwa. Po najechaniu myszą liczba dostaje podkładkę —
-w rynience nie ma nic, w co dałoby się wycelować wzrokiem, więc to ona mówi, że liczba jest
-przyciskiem. **W tej samej kolumnie co numery jej nie ma i być
-nie może**: platforma nie numeruje wierszy custom-foldów, a kolumny numerów wtyczka nie może
-przemalować per linia. Liczba siedzi w pasku ikon tuż obok — dosunięta do lewej krawędzi
-swojego paska, czyli najbliżej numerów, jak się da.
+| co | skąd |
+|---|---|
+| czcionka | `EditorFontType.PLAIN` ze schematu, powiększona o `editor.gutter.linenumber.font.size.delta` |
+| x | prawa krawędź kolumny numerów minus szerokość napisu — to samo wyrównanie do prawej |
+| linia bazowa | górna krawędź wiersza plus `editor.getAscent()` |
+
+Różni się więc wyłącznie kolorem. Numeracja przeskakuje na tym wierszu (np. z 14 na 20) — to
+normalne dla zwinięcia obejmującego całe linie.
+
+Warstwa leży na całej rynience, ale przepuszcza mysz wszędzie poza samymi licznikami
+(`contains` zwraca prawdę tylko nad nimi). Dzięki temu reszta rynienki działa jak zawsze, a
+najechanie i kliknięcie łapie się dokładnie na tym prostokącie, który się podświetla — nie na
+całym wierszu.
 
 Zwijanie domyślne dotyczy **otwarcia pliku, nie pisania**. Kiedy dopisujesz `@Claude` nad
 metodą, blok zostaje rozwinięty — zwijanie tego, przy czym właśnie pracujesz, byłoby

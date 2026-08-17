@@ -1,8 +1,6 @@
 package pl.kznd4niel.turf.ai
 
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.AnAction
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.CustomFoldRegion
 import com.intellij.openapi.editor.CustomFoldRegionRenderer
@@ -18,7 +16,6 @@ import com.intellij.openapi.editor.event.EditorMouseListener
 import com.intellij.openapi.editor.event.EditorMouseMotionListener
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.editor.ex.FoldingModelEx
-import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
 import com.intellij.openapi.editor.markup.RangeHighlighter
@@ -27,9 +24,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
 import com.intellij.ui.JBColor
 import com.intellij.util.Alarm
-import com.intellij.util.ui.JBUI
 import pl.kznd4niel.turf.TurfService
-import java.awt.Component
 import java.awt.Cursor
 import java.awt.Font
 import java.awt.FontMetrics
@@ -41,7 +36,6 @@ import java.awt.RenderingHints
 import java.awt.event.MouseEvent
 import java.awt.geom.Rectangle2D
 import java.awt.geom.RoundRectangle2D
-import javax.swing.Icon
 
 /**
  * Jeden kolor na wszystkie znaczniki - rozroznia je napis, nie barwa.
@@ -50,10 +44,10 @@ import javax.swing.Icon
  * kod pod adnotacja. Niebieski jest zajety przez pasek zmian gita w rynience.
  */
 object AiColors {
-    /** Napis na foldzie i etykieta nad rozwinietym blokiem. */
+    /** Napis na foldzie, etykieta nad blokiem i licznik w rynience. */
     val ACCENT: JBColor = JBColor(0xB0690A, 0xE0A458)
 
-    /** Tlo rozwinietego bloku. Musi byc na tyle blade, zeby skladnia zostala czytelna. */
+    /** Tlo rozwinietego bloku i podkladka pod mysza. */
     val BACKGROUND: JBColor = JBColor(0xFDF1DF, 0x3A2E1C)
 }
 
@@ -75,12 +69,11 @@ private fun metrics(editor: Editor): FontMetrics =
 /**
  * Warstwa edytora nad blokami oznaczonymi znacznikiem AI.
  *
- * Blok ma dwa stany i oba zachowuja sie jak zwykly fold - przelacza je klikniecie w sam
- * napis, bez zadnych strzalek w rynience:
+ * Blok ma dwa stany i oba zachowuja sie jak zwykly fold - przelacza je klikniecie w to,
+ * co widac, bez zadnych strzalek w rynience:
  *
- *   zwiniety   - w miejscu kodu stoi "12 Claude's lines folded" w kolorze Turfa, wciete
- *                tam, gdzie stal kod, zamiast platformowego "...", ktore nie mowi ani
- *                ile, ani czyje;
+ *   zwiniety   - w stylu napisowym "12 Claude's lines folded" w miejscu kodu, w stylu
+ *                licznikowym sama liczba w kolumnie numerow linii;
  *   rozwiniety - kod ma podbarwione tlo, a nad nim etykiete "Claude's 12 Lines", zeby po
  *                rozwinieciu dalej bylo widac, gdzie konczy sie Twoj kod.
  *
@@ -91,6 +84,8 @@ private fun metrics(editor: Editor): FontMetrics =
  */
 class AiDecor(private val editor: Editor) : Disposable {
 
+    private class FoldInfo(val key: String, val block: AiBlock)
+
     private val alarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
 
     /**
@@ -99,9 +94,12 @@ class AiDecor(private val editor: Editor) : Disposable {
      */
     private val collapsed = LinkedHashMap<String, Boolean>()
 
-    private val folds = LinkedHashMap<CustomFoldRegion, String>()
+    private val folds = LinkedHashMap<CustomFoldRegion, FoldInfo>()
     private val labels = LinkedHashMap<Inlay<*>, String>()
     private val highlighters = ArrayList<RangeHighlighter>()
+
+    /** Warstwa z liczbami w kolumnie numerow linii. Rysuje tylko w stylu licznikowym. */
+    private var numbers: AiGutterNumbers? = null
 
     /** Pierwszy skan to otwarcie pliku - tylko wtedy dziala zwijanie domyslne. */
     private var firstScan = true
@@ -112,11 +110,9 @@ class AiDecor(private val editor: Editor) : Disposable {
     /** Uklad, ktory juz jest narysowany. Bez tego kazde nacisniecie klawisza go przerysowuje. */
     private var signature: String? = null
 
+    private var counterStyle = false
     private var rebuilding = false
     private var handCursor = false
-
-    /** Blok, nad ktorego licznikiem stoi teraz mysz. Null, gdy nad zadnym. */
-    private var hovered: String? = null
 
     init {
         editor.document.addDocumentListener(object : DocumentListener {
@@ -132,15 +128,13 @@ class AiDecor(private val editor: Editor) : Disposable {
 
         editor.addEditorMouseListener(object : EditorMouseListener {
             override fun mouseClicked(e: EditorMouseEvent) = onClick(e)
-
-            // Wyjechanie poza edytor nie generuje juz ruchu myszy, wiec bez tego
-            // podswietlenie zostawaloby zapalone po opuszczeniu rynienki.
-            override fun mouseExited(e: EditorMouseEvent) = setHovered(null)
         }, this)
 
         editor.addEditorMouseMotionListener(object : EditorMouseMotionListener {
             override fun mouseMoved(e: EditorMouseEvent) = onMove(e)
         }, this)
+
+        (editor as? EditorEx)?.let { numbers = AiGutterNumbers.attach(it, this) }
 
         // Zwijanie w trakcie tworzenia edytora bywa za wczesnie - platforma dopiero
         // uklada swoje foldy. Jedna tura petli zdarzen wystarczy.
@@ -159,6 +153,35 @@ class AiDecor(private val editor: Editor) : Disposable {
         return AiScanner.scan(text)
     }
 
+    // ------------------------------------------------------------------ licznik
+
+    /**
+     * Prostokaty licznikow, liczone na biezaco. Wiersz zwinietego bloku przesuwa sie po
+     * kazdym zwinieciu czegokolwiek wyzej w pliku, wiec zapamietany prostokat i tak byly
+     * by nieaktualny przy nastepnym rysowaniu.
+     */
+    internal fun counters(): List<Counter> {
+        if (!counterStyle || editor.isDisposed) return emptyList()
+        val gutter = (editor as? EditorEx)?.gutterComponentEx ?: return emptyList()
+        // Przy schowanych numerach linii kolumna ma zerowa szerokosc - wtedy licznik
+        // idzie tam, gdzie zaczynaja sie ikony, zeby nie zniknal zupelnie.
+        val width = gutter.lineNumberAreaWidth
+        val x = if (width > 0) gutter.lineNumberAreaOffset else gutter.iconAreaOffset
+        val w = if (width > 0) width else metrics(editor).charWidth('0') * 3
+
+        return folds.entries.mapNotNull { (region, info) ->
+            if (!region.isValid) return@mapNotNull null
+            val y = region.location?.y ?: return@mapNotNull null
+            Counter(
+                info.key,
+                info.block.lineCount.toString(),
+                Rectangle(x, y, w, region.heightInPixels),
+            )
+        }
+    }
+
+    internal fun toggleFromGutter(key: String) = toggle(key)
+
     // ------------------------------------------------------------------ klikanie
 
     private fun onClick(e: EditorMouseEvent) {
@@ -173,13 +196,11 @@ class AiDecor(private val editor: Editor) : Disposable {
         if (e.area != EditorMouseEventArea.EDITING_AREA) return
         foldAt(p)?.let {
             e.consume()
-            toggle(folds.getValue(it))
+            toggle(folds.getValue(it).key)
         }
     }
 
     private fun onMove(e: EditorMouseEvent) {
-        setHovered(keyAtLine(e.logicalPosition.line))
-
         val p = e.mouseEvent.point
         val over = foldAt(p) != null || labelAt(p) != null
         if (over == handCursor) return
@@ -191,28 +212,6 @@ class AiDecor(private val editor: Editor) : Disposable {
             if (over) Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) else null,
         )
     }
-
-    /**
-     * Blok zwiniety na danej linii. W rynience nie ma wspolrzednej x, ktora cokolwiek
-     * znaczy, wiec podswietlenie idzie po samym wierszu.
-     */
-    private fun keyAtLine(line: Int): String? {
-        val doc = editor.document
-        return folds.entries.firstOrNull { (region, _) ->
-            region.isValid &&
-                line >= doc.getLineNumber(region.startOffset) &&
-                line <= doc.getLineNumber(region.endOffset)
-        }?.value
-    }
-
-    private fun setHovered(key: String?) {
-        if (hovered == key) return
-        hovered = key
-        (editor as? EditorEx)?.gutterComponentEx?.repaint()
-    }
-
-    /** Czyta to ikona licznika przy kazdym rysowaniu - stad widoczne poza klasa. */
-    internal fun isHovered(key: String): Boolean = hovered == key
 
     private fun foldAt(p: Point): CustomFoldRegion? = folds.keys.firstOrNull { region ->
         region.isValid && (region.renderer as? ClickableFold)?.hit(region, p) == true
@@ -260,6 +259,7 @@ class AiDecor(private val editor: Editor) : Disposable {
         }
         if (sig == signature) return
         signature = sig
+        counterStyle = style == AiFoldStyle.COUNTER
 
         rebuilding = true
         try {
@@ -272,6 +272,7 @@ class AiDecor(private val editor: Editor) : Disposable {
         } finally {
             rebuilding = false
         }
+        numbers?.refresh()
     }
 
     /** Bloki nierozroznialne trescia dostaja numer, zeby nie dzielily jednego stanu. */
@@ -290,16 +291,12 @@ class AiDecor(private val editor: Editor) : Disposable {
         model.runBatchFoldingOperation({
             for ((b, key) in list) {
                 val renderer =
-                    if (style == AiFoldStyle.COUNTER) CounterFoldRenderer(b, key, this)
-                    else AiFoldRenderer(b)
+                    if (style == AiFoldStyle.COUNTER) CounterFoldRenderer else AiFoldRenderer(b)
                 val region = model.addCustomLinesFolding(b.startLine, b.endLine, renderer) ?: continue
-                folds[region] = key
+                folds[region] = FoldInfo(key, b)
             }
         }, true, false)
     }
-
-    /** Wolane z ikony w rynience - stad widoczne poza klasa. */
-    internal fun expandFromGutter(key: String) = toggle(key)
 
     private fun expand(b: AiBlock, key: String) {
         val doc = editor.document
@@ -340,6 +337,8 @@ class AiDecor(private val editor: Editor) : Disposable {
     override fun dispose() {
         if (editor.getUserData(DECOR_KEY) === this) editor.putUserData(DECOR_KEY, null)
         (editor as? EditorEx)?.setCustomCursor(this, null)
+        numbers?.let { AiGutterNumbers.detach(it) }
+        numbers = null
         clear()
     }
 
@@ -373,6 +372,11 @@ class AiDecor(private val editor: Editor) : Disposable {
             Disposer.dispose(of(editor) ?: return)
         }
     }
+}
+
+/** Fold, ktory da sie rozwinac klikajac w to, co widac. */
+private interface ClickableFold {
+    fun hit(region: CustomFoldRegion, p: Point): Boolean
 }
 
 /**
@@ -420,124 +424,20 @@ private class AiFoldRenderer(private val block: AiBlock) : CustomFoldRegionRende
     }
 }
 
-/** Fold, ktory da sie rozwinac klikajac w to, co widac. */
-private interface ClickableFold {
-    fun hit(region: CustomFoldRegion, p: Point): Boolean
-}
-
 /**
- * Zwiniety blok w stylu licznikowym nie rysuje w kodzie nic - caly slad to liczba przy
- * numerach linii.
- *
- * Ikona idzie przez renderer, a nie przez highlighter na linii, bo wiersz zwinietego
- * bloku nie ma juz numeru linii ani ikon z podswietlen: platforma pyta o rynienke
- * wylacznie ten renderer. Highlighter na tej linii nie rysowal nic i blok znikal bez
- * sladu poza przeskokiem numeracji.
- *
- * Sam wiersz zostaje klikalny na szerokosc trzech znakow, zeby blok nie stal sie
- * nierozwijalny, gdyby ikona gdzies nie doszla.
+ * Zwiniety blok w stylu licznikowym nie rysuje w kodzie nic - caly slad to liczba w
+ * kolumnie numerow linii, ktora rysuje AiGutterNumbers. Wiersz musi jednak istniec, bo
+ * to on wyznacza y licznika.
  */
-private class CounterFoldRenderer(
-    private val block: AiBlock,
-    private val key: String,
-    private val decor: AiDecor,
-) : CustomFoldRegionRenderer, ClickableFold {
-
-    override fun calcWidthInPixels(region: CustomFoldRegion): Int =
-        metrics(region.editor).charWidth(' ') * 3
-
+private object CounterFoldRenderer : CustomFoldRegionRenderer {
+    override fun calcWidthInPixels(region: CustomFoldRegion): Int = 1
     override fun calcHeightInPixels(region: CustomFoldRegion): Int = region.editor.lineHeight
-
     override fun paint(
         region: CustomFoldRegion,
         g: Graphics2D,
         target: Rectangle2D,
         attributes: TextAttributes,
     ) = Unit
-
-    override fun calcGutterIconRenderer(region: CustomFoldRegion): GutterIconRenderer =
-        CounterGutterIcon(block, key, decor, region.editor)
-
-    override fun hit(region: CustomFoldRegion, p: Point): Boolean {
-        val loc = region.location ?: return false
-        return p.x >= loc.x && p.x < loc.x + region.widthInPixels &&
-            p.y >= loc.y && p.y < loc.y + region.heightInPixels
-    }
-}
-
-/**
- * Sama liczba zwinietych linii, tuz obok numerow linii.
- *
- * Czcionka, jej rozmiar i wysokosc wiersza sa brane z edytora - dokladnie tak, jak
- * rysuje sie numery linii - zeby od numeru rozniala ja wylacznie barwa. Szerokosc jest
- * przyciasna naumyslnie: ikona idzie wtedy do lewej krawedzi swojego paska, czyli tak
- * blisko kolumny numerow, jak platforma pozwala.
- */
-private class CountIcon(
-    private val text: String,
-    editor: Editor,
-    /** Czytane przy kazdym rysowaniu, bo ikona zyje dluzej niz jedno najechanie mysza. */
-    private val hovered: () -> Boolean,
-) : Icon {
-
-    private val font: Font = editor.colorsScheme.getFont(EditorFontType.PLAIN)
-    private val fm: FontMetrics = editor.contentComponent.getFontMetrics(font)
-    private val height: Int = editor.lineHeight
-    private val inset: Int = JBUI.scale(2)
-
-    override fun getIconWidth(): Int = fm.stringWidth(text) + 2 * inset
-
-    override fun getIconHeight(): Int = height
-
-    override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
-        val g2 = g.create() as Graphics2D
-        try {
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            // Podkladka tylko pod mysza: w rynience nie ma nic, w co dalo by sie wcelowac
-            // wzrokiem, wiec to ona mowi "ta liczba jest przyciskiem".
-            if (hovered()) {
-                g2.color = AiColors.BACKGROUND
-                g2.fill(
-                    RoundRectangle2D.Float(
-                        x.toFloat(), y + 1f, iconWidth.toFloat(), height - 2f, 6f, 6f
-                    )
-                )
-            }
-            g2.font = font
-            g2.color = AiColors.ACCENT
-            val m = g2.fontMetrics
-            g2.drawString(text, x + inset, y + (height - m.height) / 2 + m.ascent)
-        } finally {
-            g2.dispose()
-        }
-    }
-}
-
-/** Licznik w rynience jest w tym stylu jedynym przyciskiem, wiec to on rozwija blok. */
-private class CounterGutterIcon(
-    private val block: AiBlock,
-    private val key: String,
-    private val decor: AiDecor,
-    editor: Editor,
-) : GutterIconRenderer() {
-
-    private val icon = CountIcon(block.lineCount.toString(), editor) { decor.isHovered(key) }
-
-    override fun getIcon(): Icon = icon
-
-    override fun getTooltipText(): String =
-        "${block.lineCount} linii od ${block.marker}. Kliknij, zeby rozwinac."
-
-    override fun getAlignment(): Alignment = Alignment.LEFT
-
-    override fun getClickAction(): AnAction = object : AnAction() {
-        override fun actionPerformed(e: AnActionEvent) = decor.expandFromGutter(key)
-    }
-
-    override fun equals(other: Any?): Boolean =
-        other is CounterGutterIcon && other.key == key && other.block == block
-
-    override fun hashCode(): Int = key.hashCode() * 31 + block.hashCode()
 }
 
 /**
