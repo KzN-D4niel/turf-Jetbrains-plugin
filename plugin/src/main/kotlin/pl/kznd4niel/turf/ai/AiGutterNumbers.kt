@@ -17,7 +17,6 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.awt.geom.RoundRectangle2D
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 
@@ -32,12 +31,18 @@ import javax.swing.SwingUtilities
 internal class Counter(
     val key: String,
     val text: String,
+    /** Pole lapiace mysz. Przy rozwinietym bloku obejmuje wiersz kodu i wiersz etykiety. */
     val rect: Rectangle,
+    /**
+     * Kawalek podkladki rysowany przez ta warstwe. Null tam, gdzie rysuje ja rynienka -
+     * czyli nad wierszami kodu, zeby nie przykryc numeru linii ani paska zmian gita.
+     */
+    val chipRect: Rectangle?,
     val textX: Int,
+    /** Gora wiersza, w ktorym stoi liczba - nie zawsze gora calego pola. */
+    val textTop: Int,
     /** Ukosnik ma sens tylko obok numeru linii; wiersz etykiety numeru nie ma. */
     val slash: Boolean,
-    /** Czy podkladke pod mysza rysuje ta warstwa, czy - jak przy kodzie - rynienka. */
-    val ownChip: Boolean,
     val collapsed: Boolean,
 )
 
@@ -150,17 +155,15 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
                 0.5,
             )
             for (c in counters) {
-                val baseline = c.rect.y + editor.ascent
+                val baseline = c.textTop + editor.ascent
                 // Wiersz etykiety nie ma pod soba linii kodu, wiec nie ma tez czego
-                // przykryc - podkladke rysuje wtedy ta warstwa, a nie rynienka.
-                if (c.ownChip && c.key == hovered) {
+                // przykryc - podkladke rysuje wtedy ta warstwa, a nie rynienka. Prostokat
+                // pelnej wysokosci i bez zaokraglen, zeby stykal sie z podkladem etykiety
+                // w jedna plaszczyzne, a nie dwa osobne ksztalty.
+                val chip = c.chipRect
+                if (chip != null && c.key == hovered) {
                     g2.color = AiColors.BACKGROUND
-                    g2.fill(
-                        RoundRectangle2D.Float(
-                            c.rect.x.toFloat(), c.rect.y + 1f,
-                            c.rect.width.toFloat(), c.rect.height - 2f, 6f, 6f,
-                        )
-                    )
+                    g2.fillRect(chip.x, chip.y, chip.width, chip.height)
                 }
                 // Ukosnik w barwie numerow, liczba w barwie Turfa: numer linii i licznik
                 // stoja obok siebie, wiec tylko kolor mowi, ktore jest ktore.

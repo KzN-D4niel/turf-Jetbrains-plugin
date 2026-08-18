@@ -180,7 +180,6 @@ class AiDecor(private val editor: Editor) : Disposable {
         // zerowa szerokosc i licznik i tak stanie na jej miejscu, czyli przy krawedzi.
         val textX = gutter.lineNumberAreaOffset + gutter.lineNumberAreaWidth
         val right = hoverRight(gutter, textX)
-        val height = editor.lineHeight
 
         // Pole obejmuje caly pas rynienki, od jej lewej krawedzi po tekst - wiersz nalezy
         // w calosci do zwinietego bloku. Zaczynanie go dopiero przy numerze zostawialo z
@@ -190,13 +189,12 @@ class AiDecor(private val editor: Editor) : Disposable {
         val out = ArrayList<Counter>()
 
         hostLines().forEach { (line, key) ->
-            if (line >= doc.lineCount) return@forEach
+            val row = rowRect(line, left, right) ?: return@forEach
             val count = countOf(key) ?: return@forEach
-            val y = editor.visualLineToY(editor.offsetToVisualPosition(doc.getLineStartOffset(line)).line)
             out.add(
                 Counter(
-                    key, count.toString(), Rectangle(left, y, right - left, height), textX,
-                    slash = true, ownChip = false, collapsed = true,
+                    key, count.toString(), row, null, textX, row.y,
+                    slash = true, collapsed = true,
                 )
             )
         }
@@ -207,15 +205,28 @@ class AiDecor(private val editor: Editor) : Disposable {
             if (!inlay.isValid) return@forEach
             val b = expanded[key] ?: return@forEach
             val bounds = inlay.bounds ?: return@forEach
+            val chip = Rectangle(left, bounds.y, right - left, bounds.height)
+            // Pole lapiace obejmuje takze wiersz kodu nad etykieta - ten sam, ktory po
+            // zwinieciu niesie licznik. Dzieki temu klikany prostokat nie skacze przy
+            // przelaczaniu stanu. Jego podkladke rysuje rynienka, wiec numer linii zostaje.
+            val host = rowRect(b.startLine - 1, left, right)
             out.add(
                 Counter(
                     key, b.lineCount.toString(),
-                    Rectangle(left, bounds.y, right - left, bounds.height), textX,
-                    slash = false, ownChip = true, collapsed = false,
+                    if (host != null) chip.union(host) else chip,
+                    chip, textX, chip.y,
+                    slash = false, collapsed = false,
                 )
             )
         }
         return out
+    }
+
+    private fun rowRect(line: Int, left: Int, right: Int): Rectangle? {
+        val doc = editor.document
+        if (line < 0 || line >= doc.lineCount) return null
+        val y = editor.visualLineToY(editor.offsetToVisualPosition(doc.getLineStartOffset(line)).line)
+        return Rectangle(left, y, right - left, editor.lineHeight)
     }
 
     private fun countOf(key: String): Int? =
@@ -398,7 +409,7 @@ class AiDecor(private val editor: Editor) : Disposable {
      */
     private fun hoverBar(line: Int, key: String) {
         val doc = editor.document
-        if (line >= doc.lineCount) return
+        if (line < 0 || line >= doc.lineCount) return
         val hl = editor.markupModel.addRangeHighlighter(
             doc.getLineStartOffset(line),
             doc.getLineEndOffset(line),
@@ -432,6 +443,9 @@ class AiDecor(private val editor: Editor) : Disposable {
         if (inlay != null) {
             labels[inlay] = key
             expanded[key] = b
+            // Wiersz kodu nad etykieta nalezy do tego samego pola, wiec jego podkladke
+            // rysuje rynienka - inaczej warstwa przykrylaby numer linii.
+            if (counterStyle) hoverBar(b.startLine - 1, key)
         }
     }
 
@@ -513,18 +527,10 @@ private class HoverBarRenderer(private val key: String, private val decor: AiDec
         val right = hoverRight(gutter, x)
         val h = if (r.height > 0) r.height else editor.lineHeight
 
-        val g2 = g.create() as Graphics2D
-        try {
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            g2.color = AiColors.BACKGROUND
-            g2.fill(
-                RoundRectangle2D.Float(
-                    x.toFloat(), r.y + 1f, (right - x).toFloat(), h - 2f, 6f, 6f
-                )
-            )
-        } finally {
-            g2.dispose()
-        }
+        // Kanciasty i pelnej wysokosci, zeby styk z podkladem etykiety byl jedna
+        // plaszczyzna, a nie dwoma ksztaltami roznej wysokosci.
+        g.color = AiColors.BACKGROUND
+        g.fillRect(x, r.y, right - x, h)
     }
 }
 
