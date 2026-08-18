@@ -70,7 +70,14 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
                 decor.toggleFromGutter(c.key)
             }
 
-            override fun mouseMoved(e: MouseEvent) = setHovered(cellAt(e.x, e.y))
+            override fun mouseMoved(e: MouseEvent) {
+                val c = cellAt(e.x, e.y)
+                setHovered(c)
+                // Rynienka potrafi zapalic swoja podpowiedz z innego zrodla niz ruch
+                // myszy, wiec gaszenie musi isc przy kazdym ruchu, nie tylko przy wejsciu.
+                if (c != null) releaseGutterHover()
+            }
+
             override fun mouseEntered(e: MouseEvent) = setHovered(cellAt(e.x, e.y))
             override fun mouseExited(e: MouseEvent) = setHovered(null)
         }
@@ -96,10 +103,15 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
      */
     private fun releaseGutterHover() {
         val gutter = parent ?: return
+        val now = System.currentTimeMillis()
+        // Dwa zdarzenia, bo rynienka i to, co na niej siedzi, sledzi mysz na dwa sposoby:
+        // jedni czekaja na wyjscie, drudzy licza wiersz z ostatniego ruchu. Ruch poza
+        // komponent zalatwia tych drugich.
         gutter.dispatchEvent(
-            MouseEvent(
-                gutter, MouseEvent.MOUSE_EXITED, System.currentTimeMillis(), 0, -1, -1, 0, false
-            )
+            MouseEvent(gutter, MouseEvent.MOUSE_MOVED, now, 0, -1, -1, 0, false)
+        )
+        gutter.dispatchEvent(
+            MouseEvent(gutter, MouseEvent.MOUSE_EXITED, now, 0, -1, -1, 0, false)
         )
     }
 
