@@ -291,9 +291,10 @@ Warstwa leży na całej rynience, ale przepuszcza mysz wszędzie poza polem licz
 (`contains` zwraca prawdę tylko nad nim). Dzięki temu reszta rynienki działa jak zawsze, a
 najechanie i kliknięcie łapie się dokładnie na tym prostokącie, który się podświetla.
 
-Pole sięga przez całą szerokość rynienki, ale kończy się tuż przed
-`getLineMarkerFreePaintersAreaOffset()` — tam **zaczyna** swój pasek git (kończy go dopiero
-`getWhitespaceSeparatorOffset()`), a przykrycie go podświetleniem zabierałoby informację. Wejście
+Pole sięga przez całą szerokość rynienki, aż do tekstu. Podkładki nie rysuje jednak warstwa
+(byłaby nad paskiem zmian gita i zakryłaby go), tylko **sama rynienka** — jako znacznik linii
+na warstwie `SYNTAX`. Rynienka rysuje znaczniki w kolejności warstw, a pasek gita siedzi na
+5999, więc idzie po nas: podkładka jest pełnej szerokości i mimo to git zostaje widoczny. Wejście
 na pole wysyła rynience zdarzenie opuszczenia myszą: leży pod tą warstwą, więc nie wie, że
 mysz nad nią stoi, i swoje podpowiedzi (podkład pod ikonę, duch punktu wstrzymania) gasi
 dopiero wtedy.

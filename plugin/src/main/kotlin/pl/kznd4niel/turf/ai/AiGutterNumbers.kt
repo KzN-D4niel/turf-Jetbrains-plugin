@@ -14,7 +14,6 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.awt.geom.RoundRectangle2D
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 
@@ -83,9 +82,11 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
         if (hovered == c?.key) return
         val taking = hovered == null && c != null
         hovered = c?.key
+        decor.setHovered(c?.key)
         toolTipText = c?.let { "${it.text} linii zwinietego kodu AI. Kliknij, zeby rozwinac." }
         if (taking) releaseGutterHover()
-        repaint()
+        // Podkladke rysuje rynienka, wiec to ona musi sie odswiezyc, nie sama warstwa.
+        parent?.repaint() ?: repaint()
     }
 
     /**
@@ -118,15 +119,6 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
             g2.font = lineNumberFont(editor)
             val fm = g2.fontMetrics
             for (c in counters) {
-                if (c.key == hovered) {
-                    g2.color = AiColors.BACKGROUND
-                    g2.fill(
-                        RoundRectangle2D.Float(
-                            c.rect.x.toFloat(), c.rect.y + 1f,
-                            c.rect.width.toFloat(), c.rect.height - 2f, 6f, 6f,
-                        )
-                    )
-                }
                 g2.color = AiColors.ACCENT
                 g2.drawString(
                     c.text,

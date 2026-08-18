@@ -15,9 +15,11 @@ import com.intellij.openapi.editor.event.EditorMouseEventArea
 import com.intellij.openapi.editor.event.EditorMouseListener
 import com.intellij.openapi.editor.event.EditorMouseMotionListener
 import com.intellij.openapi.editor.ex.EditorEx
+import com.intellij.openapi.editor.ex.EditorGutterComponentEx
 import com.intellij.openapi.editor.ex.FoldingModelEx
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.HighlighterTargetArea
+import com.intellij.openapi.editor.markup.LineMarkerRendererEx
 import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.util.Disposer
@@ -114,6 +116,9 @@ class AiDecor(private val editor: Editor) : Disposable {
     private var rebuilding = false
     private var handCursor = false
 
+    /** Blok, nad ktorego licznikiem stoi mysz. Trzymany tu, bo czyta go tez rynienka. */
+    private var hoveredKey: String? = null
+
     init {
         editor.document.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) = schedule(DEBOUNCE_MS)
@@ -170,16 +175,7 @@ class AiDecor(private val editor: Editor) : Disposable {
         val textRight =
             if (numbers > 0) x + numbers else x + metrics(editor).charWidth('0') * 3
 
-        // Pole siega przez cala rynienke, ale konczy sie tam, gdzie ZACZYNA sie pasek
-        // zmian gita - jego przykrycie podswietleniem zabieraloby informacje. Pasek
-        // rysowany jest od lineMarkerFreePaintersAreaOffset do whitespaceSeparatorOffset,
-        // wiec granica jest ta pierwsza wartosc; druga to jego prawy koniec, czyli juz
-        // za daleko. Reszta listy to zapas na wypadek nietypowego ukladu rynienki.
-        val right = listOf(
-            gutter.lineMarkerFreePaintersAreaOffset - 1,
-            gutter.whitespaceSeparatorOffset,
-            gutter.width,
-        ).firstOrNull { it > textRight } ?: gutter.width
+        val right = hoverRight(gutter, textRight)
 
         return folds.entries.mapNotNull { (region, info) ->
             if (!region.isValid) return@mapNotNull null
@@ -194,6 +190,13 @@ class AiDecor(private val editor: Editor) : Disposable {
     }
 
     internal fun toggleFromGutter(key: String) = toggle(key)
+
+    /** Czyta to podkladka w rynience przy kazdym rysowaniu. */
+    internal fun isHovered(key: String): Boolean = hoveredKey == key
+
+    internal fun setHovered(key: String?) {
+        hoveredKey = key
+    }
 
     // ------------------------------------------------------------------ klikanie
 
@@ -309,6 +312,27 @@ class AiDecor(private val editor: Editor) : Disposable {
                 folds[region] = FoldInfo(key, b)
             }
         }, true, false)
+
+        if (style == AiFoldStyle.COUNTER) list.forEach { (b, key) -> hoverBar(b, key) }
+    }
+
+    /**
+     * Podkladka pod mysza nie jest rysowana przez warstwe nad rynienka, tylko przez samą
+     * rynienke - jako znacznik linii na niskiej warstwie. Rynienka rysuje znaczniki w
+     * kolejnosci warstw, a pasek zmian gita siedzi na 5999, wiec idzie po nas: podkladka
+     * moze byc pelnej szerokosci i mimo to go nie zakryje.
+     */
+    private fun hoverBar(b: AiBlock, key: String) {
+        val doc = editor.document
+        val hl = editor.markupModel.addRangeHighlighter(
+            doc.getLineStartOffset(b.startLine),
+            doc.getLineEndOffset(b.endLine),
+            HighlighterLayer.SYNTAX,
+            null,
+            HighlighterTargetArea.LINES_IN_RANGE,
+        )
+        hl.lineMarkerRenderer = HoverBarRenderer(key, this)
+        highlighters.add(hl)
     }
 
     private fun expand(b: AiBlock, key: String) {
@@ -383,6 +407,41 @@ class AiDecor(private val editor: Editor) : Disposable {
 
         fun detach(editor: Editor) {
             Disposer.dispose(of(editor) ?: return)
+        }
+    }
+}
+
+/**
+ * Prawa krawedz pola licznika: koniec rynienki tuz przy tekscie. Podkladka moze tam
+ * siegac, bo rysuje ja rynienka przed paskiem gita, a nie warstwa nad nim.
+ */
+internal fun hoverRight(gutter: EditorGutterComponentEx, left: Int): Int =
+    gutter.whitespaceSeparatorOffset.takeIf { it > left } ?: gutter.width
+
+/** Podkladka pod mysza, rysowana przez rynienke - stad pod paskiem zmian gita. */
+private class HoverBarRenderer(private val key: String, private val decor: AiDecor) :
+    LineMarkerRendererEx {
+
+    override fun getPosition(): LineMarkerRendererEx.Position = LineMarkerRendererEx.Position.CUSTOM
+
+    override fun paint(editor: Editor, g: Graphics, r: Rectangle) {
+        if (!decor.isHovered(key)) return
+        val gutter = (editor as? EditorEx)?.gutterComponentEx ?: return
+        val x = gutter.lineNumberAreaOffset
+        val right = hoverRight(gutter, x)
+        val h = if (r.height > 0) r.height else editor.lineHeight
+
+        val g2 = g.create() as Graphics2D
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g2.color = AiColors.BACKGROUND
+            g2.fill(
+                RoundRectangle2D.Float(
+                    x.toFloat(), r.y + 1f, (right - x).toFloat(), h - 2f, 6f, 6f
+                )
+            )
+        } finally {
+            g2.dispose()
         }
     }
 }
