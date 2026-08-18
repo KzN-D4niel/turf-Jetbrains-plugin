@@ -265,33 +265,37 @@ Ustawienie jest per projekt i przeżywa restart IDE.
 | styl | co widać |
 |---|---|
 | `napis w kodzie` (domyślny) | `12 Claude's lines folded` w miejscu kodu |
-| `liczba w rynience` | w kodzie **nic**, tylko kolorowa liczba zwiniętych linii przy numerze linii |
+| `liczba w rynience` | w kodzie **nic**, a numer linii nad blokiem czyta się `14 / 5` |
 
 Drugi jest dla czytania własnego kodu bez przypominania na każdym kroku, że obok siedzi model:
 zwinięty blok zostawia pustą linię, a jedynym śladem jest pomarańczowe `12` w rynience. Klika
 się je tak samo — a gdyby ikona gdzieś nie doszła, sam wiersz też pozostaje klikalny, żeby
 blok nie stał się nierozwijalny.
 
-Liczba stoi **w kolumnie numerów linii**, w tym wierszu, w którym platforma numeru nie
-narysuje. Rynienki nie da się poprosić ani o numer w wierszu custom-folda, ani o numer w innym
-kolorze, więc `AiGutterNumbers` rysuje go sam — na wierzchu rynienki, jako jej dziecko o
-indeksie 0. Wszystko, co decyduje o wyglądzie, jest brane stamtąd, skąd bierze to platforma
-(odtworzone z `EditorGutterComponentImpl`):
+Zwinięty blok **nie zajmuje własnego wiersza**: chowa się w końcu linii nad sobą, tak jak
+zwykłe zwinięcie ciała metody chowa się w jej nagłówku. Nie zostaje po nim pusta linia, a
+licznik dosiada numeru tej linii i czyta się `14 / 5` — ukośnik w barwie numerów, liczba w
+barwie Turfa, bo stoją obok siebie i tylko kolor mówi, które jest które.
+
+Liczbę rysuje `AiGutterNumbers` — warstwa na wierzchu rynienki, jej dziecko o indeksie 0.
+Wszystko, co decyduje o wyglądzie, jest brane stamtąd, skąd bierze to platforma (odtworzone
+z `EditorGutterComponentImpl`):
 
 | co | skąd |
 |---|---|
 | czcionka | `EditorFontType.PLAIN` ze schematu, powiększona o `editor.gutter.linenumber.font.size.delta` |
-| x | prawa krawędź kolumny numerów minus szerokość napisu — to samo wyrównanie do prawej |
+| x | tuż za prawą krawędzią kolumny numerów, czyli od razu po numerze linii |
 | linia bazowa | górna krawędź wiersza plus `editor.getAscent()` |
 
-Różni się więc wyłącznie kolorem. Numeracja przeskakuje na tym wierszu (np. z 14 na 20) — to
+Różni się więc wyłącznie kolorem. Numeracja przeskakuje na tym wierszu (z 14 na 20) — to
 normalne dla zwinięcia obejmującego całe linie.
 
 Warstwa leży na całej rynience, ale przepuszcza mysz wszędzie poza polem licznika
 (`contains` zwraca prawdę tylko nad nim). Dzięki temu reszta rynienki działa jak zawsze, a
 najechanie i kliknięcie łapie się dokładnie na tym prostokącie, który się podświetla.
 
-Pole sięga przez całą szerokość rynienki, aż do tekstu. Podkładki nie rysuje jednak warstwa
+Pole zaczyna się za numerem linii — sam numer należy do widocznej linii, nie do zwiniętego
+bloku, więc kliknięcie w niego niczego nie rozwija — i sięga aż do tekstu. Podkładki nie rysuje jednak warstwa
 (byłaby nad paskiem zmian gita i zakryłaby go), tylko **sama rynienka** — jako znacznik linii
 na warstwie `SYNTAX`. Rynienka rysuje znaczniki w kolejności warstw, a pasek gita siedzi na
 5999, więc idzie po nas: podkładka jest pełnej szerokości i mimo to git zostaje widoczny. Warstwa oddaje przy tym rynience każdy ruch myszy, ale zawsze na wysokości kolumny numerów

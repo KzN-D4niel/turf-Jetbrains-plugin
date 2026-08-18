@@ -1,9 +1,11 @@
 package pl.kznd4niel.turf.ai
 
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.colors.EditorFontType
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.options.advanced.AdvancedSettings
+import com.intellij.ui.JBColor
 import java.awt.Cursor
 import java.awt.Font
 import java.awt.Graphics
@@ -18,17 +20,18 @@ import javax.swing.JComponent
 import javax.swing.SwingUtilities
 
 /**
- * Licznik zwinietego bloku: numer linii, ktorego platforma w tym wierszu nie narysuje.
+ * Licznik zwinietego bloku, dopisany do numeru linii nad nim: "14 / 5".
  *
- * @param rect      pole klikalne i podswietlane - cala rynienka az do paska zmian gita.
- * @param textRight prawa krawedz kolumny numerow; napis wyrownuje sie do niej, nie do
- *                  prawej krawedzi pola, zeby stal dokladnie tam, gdzie inne numery.
+ * @param rect  pole klikalne i podswietlane - od konca kolumny numerow az do paska zmian
+ *              gita. Sam numer linii zostaje poza nim, bo nalezy do widocznej linii, a nie
+ *              do zwinietego bloku.
+ * @param textX miejsce, w ktorym zaczyna sie " / " - tuz za numerem linii.
  */
 internal class Counter(
     val key: String,
     val text: String,
     val rect: Rectangle,
-    val textRight: Int,
+    val textX: Int,
 )
 
 /**
@@ -127,13 +130,16 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             g2.font = lineNumberFont(editor)
             val fm = g2.fontMetrics
+            val gray = editor.colorsScheme.getColor(EditorColors.LINE_NUMBERS_COLOR)
+                ?: JBColor.GRAY
             for (c in counters) {
+                val baseline = c.rect.y + editor.ascent
+                // Ukosnik w barwie numerow, liczba w barwie Turfa: numer linii i licznik
+                // stoja obok siebie, wiec tylko kolor mowi, ktore jest ktore.
+                g2.color = gray
+                g2.drawString(SEPARATOR, c.textX, baseline)
                 g2.color = AiColors.ACCENT
-                g2.drawString(
-                    c.text,
-                    c.textRight - fm.stringWidth(c.text),
-                    c.rect.y + editor.ascent,
-                )
+                g2.drawString(c.text, c.textX + fm.stringWidth(SEPARATOR), baseline)
             }
         } finally {
             g2.dispose()
@@ -153,6 +159,9 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
     }
 
     companion object {
+        /** To, co oddziela numer linii od licznika. Odstepy sa czescia napisu. */
+        const val SEPARATOR = " / "
+
         /** Odtworzone z EditorGutterComponentImpl.getFontForLineNumbers(). */
         fun lineNumberFont(editor: Editor): Font {
             val base = editor.colorsScheme.getFont(EditorFontType.PLAIN)

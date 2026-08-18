@@ -6,6 +6,7 @@ import com.intellij.openapi.editor.CustomFoldRegion
 import com.intellij.openapi.editor.CustomFoldRegionRenderer
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorCustomElementRenderer
+import com.intellij.openapi.editor.FoldRegion
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.colors.EditorFontType
 import com.intellij.openapi.editor.event.DocumentEvent
@@ -97,6 +98,9 @@ class AiDecor(private val editor: Editor) : Disposable {
     private val collapsed = LinkedHashMap<String, Boolean>()
 
     private val folds = LinkedHashMap<CustomFoldRegion, FoldInfo>()
+
+    /** Zwiniecia stylu licznikowego - zwykle, bez wlasnego wiersza. */
+    private val plainFolds = LinkedHashMap<FoldRegion, FoldInfo>()
     private val labels = LinkedHashMap<Inlay<*>, String>()
     private val highlighters = ArrayList<RangeHighlighter>()
 
@@ -168,26 +172,23 @@ class AiDecor(private val editor: Editor) : Disposable {
     internal fun counters(): List<Counter> {
         if (!counterStyle || editor.isDisposed) return emptyList()
         val gutter = (editor as? EditorEx)?.gutterComponentEx ?: return emptyList()
-        // Przy schowanych numerach linii kolumna ma zerowa szerokosc - wtedy licznik
-        // idzie tam, gdzie zaczynaja sie ikony, zeby nie zniknal zupelnie.
-        val numbers = gutter.lineNumberAreaWidth
-        val x = if (numbers > 0) gutter.lineNumberAreaOffset else gutter.iconAreaOffset
-        val textRight =
-            if (numbers > 0) x + numbers else x + metrics(editor).charWidth('0') * 3
+        val doc = editor.document
+        // Licznik zaczyna sie tuz za kolumna numerow. Przy schowanych numerach kolumna ma
+        // zerowa szerokosc i licznik i tak stanie na jej miejscu, czyli przy krawedzi.
+        val textX = gutter.lineNumberAreaOffset + gutter.lineNumberAreaWidth
+        val right = hoverRight(gutter, textX)
+        val height = editor.lineHeight
 
-        val right = hoverRight(gutter, textRight)
-
-        return folds.entries.mapNotNull { (region, info) ->
-            if (!region.isValid) return@mapNotNull null
-            val y = region.location?.y ?: return@mapNotNull null
-            Counter(
-                info.key,
-                info.block.lineCount.toString(),
-                Rectangle(x, y, right - x, region.heightInPixels),
-                textRight,
-            )
+        return hostLines().mapNotNull { (line, key) ->
+            if (line >= doc.lineCount) return@mapNotNull null
+            val count = countOf(key) ?: return@mapNotNull null
+            val y = editor.visualLineToY(editor.offsetToVisualPosition(doc.getLineStartOffset(line)).line)
+            Counter(key, count.toString(), Rectangle(textX, y, right - textX, height), textX)
         }
     }
+
+    private fun countOf(key: String): Int? =
+        (plainFolds.values + folds.values).firstOrNull { it.key == key }?.block?.lineCount
 
     internal fun toggleFromGutter(key: String) = toggle(key)
 
@@ -304,16 +305,53 @@ class AiDecor(private val editor: Editor) : Disposable {
 
     private fun fold(list: List<Pair<AiBlock, String>>, style: AiFoldStyle) {
         val model = editor.foldingModel as? FoldingModelEx ?: return
+        val doc = editor.document
         model.runBatchFoldingOperation({
             for ((b, key) in list) {
-                val renderer =
-                    if (style == AiFoldStyle.COUNTER) CounterFoldRenderer else AiFoldRenderer(b)
-                val region = model.addCustomLinesFolding(b.startLine, b.endLine, renderer) ?: continue
-                folds[region] = FoldInfo(key, b)
+                if (style != AiFoldStyle.COUNTER) {
+                    val region = model.addCustomLinesFolding(b.startLine, b.endLine, AiFoldRenderer(b))
+                    if (region != null) folds[region] = FoldInfo(key, b)
+                    continue
+                }
+
+                // Styl licznikowy nie ma wlasnego wiersza: blok chowa sie w koncu linii
+                // NAD nim, tak jak zwykle zwiniecie ciala metody chowa sie w jej naglowku.
+                // Dzieki temu nie zostaje pusta linia, a licznik ma numer, przy ktorym
+                // moze stanac.
+                val host = b.startLine - 1
+                val from =
+                    if (host >= 0) doc.getLineEndOffset(host) else doc.getLineStartOffset(b.startLine)
+                val plain = model.addFoldRegion(from, doc.getLineEndOffset(b.endLine), "")
+                if (plain != null) {
+                    plain.isExpanded = false
+                    plainFolds[plain] = FoldInfo(key, b)
+                    continue
+                }
+                // Zakres zajety przez cudze zwiniecie - wtedy zostaje wlasny wiersz,
+                // bo lepszy licznik na osobnej linii niz brak zwiniecia.
+                val fallback = model.addCustomLinesFolding(b.startLine, b.endLine, CounterFoldRenderer)
+                if (fallback != null) folds[fallback] = FoldInfo(key, b)
             }
         }, true, false)
 
-        if (style == AiFoldStyle.COUNTER) list.forEach { (b, key) -> hoverBar(b, key) }
+        if (style == AiFoldStyle.COUNTER) hostLines().forEach { (line, key) -> hoverBar(line, key) }
+    }
+
+    /** Wiersz, przy ktorego numerze stoi licznik, dla kazdego zwinietego bloku. */
+    private fun hostLines(): List<Pair<Int, String>> {
+        val doc = editor.document
+        val out = ArrayList<Pair<Int, String>>()
+        plainFolds.forEach { (region, info) ->
+            // Rozwiniete przez platforme, np. "Expand All" - wtedy kod widac, wiec licznik
+            // nie ma czego liczyc.
+            if (region.isValid && !region.isExpanded) {
+                out.add(doc.getLineNumber(region.startOffset) to info.key)
+            }
+        }
+        folds.forEach { (region, info) ->
+            if (region.isValid) out.add(doc.getLineNumber(region.startOffset) to info.key)
+        }
+        return out
     }
 
     /**
@@ -322,11 +360,12 @@ class AiDecor(private val editor: Editor) : Disposable {
      * kolejnosci warstw, a pasek zmian gita siedzi na 5999, wiec idzie po nas: podkladka
      * moze byc pelnej szerokosci i mimo to go nie zakryje.
      */
-    private fun hoverBar(b: AiBlock, key: String) {
+    private fun hoverBar(line: Int, key: String) {
         val doc = editor.document
+        if (line >= doc.lineCount) return
         val hl = editor.markupModel.addRangeHighlighter(
-            doc.getLineStartOffset(b.startLine),
-            doc.getLineEndOffset(b.endLine),
+            doc.getLineStartOffset(line),
+            doc.getLineEndOffset(line),
             HighlighterLayer.SYNTAX,
             null,
             HighlighterTargetArea.LINES_IN_RANGE,
@@ -358,12 +397,14 @@ class AiDecor(private val editor: Editor) : Disposable {
     }
 
     private fun clear() {
-        if (folds.isNotEmpty()) {
+        if (folds.isNotEmpty() || plainFolds.isNotEmpty()) {
             val model = editor.foldingModel as? FoldingModelEx
             model?.runBatchFoldingOperation({
                 folds.keys.forEach { if (it.isValid) model.removeFoldRegion(it) }
+                plainFolds.keys.forEach { if (it.isValid) model.removeFoldRegion(it) }
             }, true, false)
             folds.clear()
+            plainFolds.clear()
         }
         highlighters.forEach { editor.markupModel.removeHighlighter(it) }
         highlighters.clear()
