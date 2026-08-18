@@ -17,6 +17,7 @@ import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.geom.RoundRectangle2D
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 
@@ -33,6 +34,11 @@ internal class Counter(
     val text: String,
     val rect: Rectangle,
     val textX: Int,
+    /** Ukosnik ma sens tylko obok numeru linii; wiersz etykiety numeru nie ma. */
+    val slash: Boolean,
+    /** Czy podkladke pod mysza rysuje ta warstwa, czy - jak przy kodzie - rynienka. */
+    val ownChip: Boolean,
+    val collapsed: Boolean,
 )
 
 /**
@@ -93,7 +99,10 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
         if (hovered == c?.key) return
         hovered = c?.key
         decor.setHovered(c?.key)
-        toolTipText = c?.let { "${it.text} linii zwinietego kodu AI. Kliknij, zeby rozwinac." }
+        toolTipText = c?.let {
+            if (it.collapsed) "${it.text} linii zwinietego kodu AI. Kliknij, zeby rozwinac."
+            else "${it.text} linii kodu AI. Kliknij, zeby zwinac."
+        }
         // Podkladke rysuje rynienka, wiec to ona musi sie odswiezyc, nie sama warstwa.
         parent?.repaint() ?: repaint()
     }
@@ -142,11 +151,26 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
             )
             for (c in counters) {
                 val baseline = c.rect.y + editor.ascent
+                // Wiersz etykiety nie ma pod soba linii kodu, wiec nie ma tez czego
+                // przykryc - podkladke rysuje wtedy ta warstwa, a nie rynienka.
+                if (c.ownChip && c.key == hovered) {
+                    g2.color = AiColors.BACKGROUND
+                    g2.fill(
+                        RoundRectangle2D.Float(
+                            c.rect.x.toFloat(), c.rect.y + 1f,
+                            c.rect.width.toFloat(), c.rect.height - 2f, 6f, 6f,
+                        )
+                    )
+                }
                 // Ukosnik w barwie numerow, liczba w barwie Turfa: numer linii i licznik
                 // stoja obok siebie, wiec tylko kolor mowi, ktore jest ktore.
-                g2.color = gray
-                g2.drawString(SEPARATOR, c.textX, baseline)
+                if (c.slash) {
+                    g2.color = gray
+                    g2.drawString(SEPARATOR, c.textX, baseline)
+                }
                 g2.color = AiColors.ACCENT
+                // Liczba stoi w tej samej kolumnie niezaleznie od ukosnika, zeby liczniki
+                // zwinietych i rozwinietych blokow tworzyly jeden pion.
                 g2.drawString(c.text, c.textX + fm.stringWidth(SEPARATOR), baseline)
             }
         } finally {

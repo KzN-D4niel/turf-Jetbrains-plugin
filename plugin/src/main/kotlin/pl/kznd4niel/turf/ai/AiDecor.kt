@@ -102,6 +102,9 @@ class AiDecor(private val editor: Editor) : Disposable {
     /** Zwiniecia stylu licznikowego - zwykle, bez wlasnego wiersza. */
     private val plainFolds = LinkedHashMap<FoldRegion, FoldInfo>()
     private val labels = LinkedHashMap<Inlay<*>, String>()
+
+    /** Bloki aktualnie rozwiniete - licznik w rynience potrzebuje ich rozmiaru. */
+    private val expanded = LinkedHashMap<String, AiBlock>()
     private val highlighters = ArrayList<RangeHighlighter>()
 
     /** Warstwa z liczbami w kolumnie numerow linii. Rysuje tylko w stylu licznikowym. */
@@ -184,12 +187,35 @@ class AiDecor(private val editor: Editor) : Disposable {
         // lewej pasek nieobjety niczym, przez co podswietlenie wygladalo na uciete.
         val left = 0
 
-        return hostLines().mapNotNull { (line, key) ->
-            if (line >= doc.lineCount) return@mapNotNull null
-            val count = countOf(key) ?: return@mapNotNull null
+        val out = ArrayList<Counter>()
+
+        hostLines().forEach { (line, key) ->
+            if (line >= doc.lineCount) return@forEach
+            val count = countOf(key) ?: return@forEach
             val y = editor.visualLineToY(editor.offsetToVisualPosition(doc.getLineStartOffset(line)).line)
-            Counter(key, count.toString(), Rectangle(left, y, right - left, height), textX)
+            out.add(
+                Counter(
+                    key, count.toString(), Rectangle(left, y, right - left, height), textX,
+                    slash = true, ownChip = false, collapsed = true,
+                )
+            )
         }
+
+        // Rozwiniety blok tez ma licznik - na wysokosci swojej etykiety. Bez niego zwiniecie
+        // z powrotem szlo wylacznie klikiem w etykiete, a rynienka w tym wierszu stala pusta.
+        labels.forEach { (inlay, key) ->
+            if (!inlay.isValid) return@forEach
+            val b = expanded[key] ?: return@forEach
+            val bounds = inlay.bounds ?: return@forEach
+            out.add(
+                Counter(
+                    key, b.lineCount.toString(),
+                    Rectangle(left, bounds.y, right - left, bounds.height), textX,
+                    slash = false, ownChip = true, collapsed = false,
+                )
+            )
+        }
+        return out
     }
 
     private fun countOf(key: String): Int? =
@@ -403,7 +429,10 @@ class AiDecor(private val editor: Editor) : Disposable {
 
         val label = "${AiMarkers.possessive(b.marker)} ${b.lineCount} Lines"
         val inlay = editor.inlayModel.addBlockElement(start, false, true, 0, LabelRenderer(label))
-        if (inlay != null) labels[inlay] = key
+        if (inlay != null) {
+            labels[inlay] = key
+            expanded[key] = b
+        }
     }
 
     private fun clear() {
@@ -420,6 +449,7 @@ class AiDecor(private val editor: Editor) : Disposable {
         highlighters.clear()
         labels.keys.forEach { Disposer.dispose(it) }
         labels.clear()
+        expanded.clear()
     }
 
     override fun dispose() {

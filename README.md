@@ -282,6 +282,10 @@ Region tworzony jest z `neverExpands`, więc platforma nie rysuje przy nim swoje
 zwijania — rozwija się to licznikiem, a daszek byłby drugim przyciskiem do tego samego,
 stojącym tuż obok liczby.
 
+**Rozwinięty blok też ma licznik** — samo `5`, w tej samej kolumnie, na wysokości swojej
+etykiety `Claude's 5 Lines`. Kliknięcie zwija blok z powrotem. Bez niego rynienka w tym
+wierszu stała pusta, a zwijało się wyłącznie klikiem w etykietę.
+
 Liczbę rysuje `AiGutterNumbers` — warstwa na wierzchu rynienki, jej dziecko o indeksie 0.
 Wszystko, co decyduje o wyglądzie, jest brane stamtąd, skąd bierze to platforma (odtworzone
 z `EditorGutterComponentImpl`):
