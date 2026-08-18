@@ -179,11 +179,17 @@ class AiDecor(private val editor: Editor) : Disposable {
         val right = hoverRight(gutter, textX)
         val height = editor.lineHeight
 
+        // Pole obejmuje takze numer linii. Nie chodzi o klikalnosc samej cyfry, tylko o to,
+        // ze klikniecie w rynience tego wiersza stawia punkt wstrzymania - a jego ikona
+        // wchodzi na miejsce numeru i rozbija licznik. Wiersz nalezy do zwinietego bloku,
+        // wiec caly jego pas rynienki jest nasz.
+        val left = gutter.lineNumberAreaOffset
+
         return hostLines().mapNotNull { (line, key) ->
             if (line >= doc.lineCount) return@mapNotNull null
             val count = countOf(key) ?: return@mapNotNull null
             val y = editor.visualLineToY(editor.offsetToVisualPosition(doc.getLineStartOffset(line)).line)
-            Counter(key, count.toString(), Rectangle(textX, y, right - textX, height), textX)
+            Counter(key, count.toString(), Rectangle(left, y, right - left, height), textX)
         }
     }
 
@@ -321,7 +327,12 @@ class AiDecor(private val editor: Editor) : Disposable {
                 val host = b.startLine - 1
                 val from =
                     if (host >= 0) doc.getLineEndOffset(host) else doc.getLineStartOffset(b.startLine)
-                val plain = model.addFoldRegion(from, doc.getLineEndOffset(b.endLine), "")
+                // neverExpands zdejmuje strzalke zwijania z rynienki: rozwija sie to
+                // licznikiem, a nie platformowym daszkiem, wiec daszek byl drugim
+                // przyciskiem do tego samego, stojacym tuz obok liczby.
+                val plain = model.createFoldRegion(
+                    from, doc.getLineEndOffset(b.endLine), "", null, true
+                )
                 if (plain != null) {
                     plain.isExpanded = false
                     plainFolds[plain] = FoldInfo(key, b)

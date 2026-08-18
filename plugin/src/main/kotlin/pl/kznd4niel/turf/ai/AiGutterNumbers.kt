@@ -164,8 +164,8 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
     }
 
     companion object {
-        /** To, co oddziela numer linii od licznika. Odstepy sa czescia napisu. */
-        const val SEPARATOR = " / "
+        /** To, co oddziela numer linii od licznika. Bez odstepow - to jedna calosc. */
+        const val SEPARATOR = "/"
 
         /** Odtworzone z EditorGutterComponentImpl.getFontForLineNumbers(). */
         fun lineNumberFont(editor: Editor): Font {

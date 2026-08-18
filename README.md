@@ -274,9 +274,13 @@ blok nie stał się nierozwijalny.
 
 Zwinięty blok **nie zajmuje własnego wiersza**: chowa się w końcu linii nad sobą, tak jak
 zwykłe zwinięcie ciała metody chowa się w jej nagłówku. Nie zostaje po nim pusta linia, a
-licznik dosiada numeru tej linii i czyta się `14 / 5` — liczba w barwie Turfa, bo stoi obok
+licznik dosiada numeru tej linii i czyta się `14/5` — liczba w barwie Turfa, bo stoi obok
 numeru i tylko kolor mówi, które jest które, a ukośnik w barwie numerów przygaszonej do
 połowy: jest tylko przecinkiem między dwiema liczbami, więc ma być bledszy od obu.
+
+Region tworzony jest z `neverExpands`, więc platforma nie rysuje przy nim swojego daszka
+zwijania — rozwija się to licznikiem, a daszek byłby drugim przyciskiem do tego samego,
+stojącym tuż obok liczby.
 
 Liczbę rysuje `AiGutterNumbers` — warstwa na wierzchu rynienki, jej dziecko o indeksie 0.
 Wszystko, co decyduje o wyglądzie, jest brane stamtąd, skąd bierze to platforma (odtworzone
@@ -295,8 +299,10 @@ Warstwa leży na całej rynience, ale przepuszcza mysz wszędzie poza polem licz
 (`contains` zwraca prawdę tylko nad nim). Dzięki temu reszta rynienki działa jak zawsze, a
 najechanie i kliknięcie łapie się dokładnie na tym prostokącie, który się podświetla.
 
-Pole zaczyna się za numerem linii — sam numer należy do widocznej linii, nie do zwiniętego
-bloku, więc kliknięcie w niego niczego nie rozwija — i sięga aż do tekstu. Podkładki nie rysuje jednak warstwa
+Pole obejmuje **cały pas rynienki tego wiersza**, z numerem linii włącznie, aż do tekstu. Nie
+chodzi o klikalność samej cyfry, tylko o to, że kliknięcie w rynience stawia punkt
+wstrzymania, a jego ikona wchodzi na miejsce numeru i rozbija licznik. **Ceną jest to, że na
+tej jednej linii nie ustawisz punktu wstrzymania kliknięciem** — zostaje `Ctrl+F8`. Podkładki nie rysuje jednak warstwa
 (byłaby nad paskiem zmian gita i zakryłaby go), tylko **sama rynienka** — jako znacznik linii
 na warstwie `SYNTAX`. Rynienka rysuje znaczniki w kolejności warstw, a pasek gita siedzi na
 5999, więc idzie po nas: podkładka jest pełnej szerokości i mimo to git zostaje widoczny. Warstwa oddaje przy tym rynience każdy ruch myszy, ale zawsze na wysokości kolumny numerów
