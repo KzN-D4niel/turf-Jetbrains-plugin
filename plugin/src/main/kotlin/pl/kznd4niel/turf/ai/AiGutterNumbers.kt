@@ -71,14 +71,14 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
             }
 
             override fun mouseMoved(e: MouseEvent) {
-                val c = cellAt(e.x, e.y)
-                setHovered(c)
-                // Rynienka potrafi zapalic swoja podpowiedz z innego zrodla niz ruch
-                // myszy, wiec gaszenie musi isc przy kazdym ruchu, nie tylko przy wejsciu.
-                if (c != null) releaseGutterHover()
+                setHovered(cellAt(e.x, e.y))
+                passToGutter(e)
             }
 
-            override fun mouseEntered(e: MouseEvent) = setHovered(cellAt(e.x, e.y))
+            override fun mouseEntered(e: MouseEvent) {
+                setHovered(cellAt(e.x, e.y))
+                passToGutter(e)
+            }
             override fun mouseExited(e: MouseEvent) = setHovered(null)
         }
         addMouseListener(mouse)
@@ -87,31 +87,28 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
 
     private fun setHovered(c: Counter?) {
         if (hovered == c?.key) return
-        val taking = hovered == null && c != null
         hovered = c?.key
         decor.setHovered(c?.key)
         toolTipText = c?.let { "${it.text} linii zwinietego kodu AI. Kliknij, zeby rozwinac." }
-        if (taking) releaseGutterHover()
         // Podkladke rysuje rynienka, wiec to ona musi sie odswiezyc, nie sama warstwa.
         parent?.repaint() ?: repaint()
     }
 
     /**
-     * Rynienka nie wie, ze mysz nad nia stoi, bo lezy pod ta warstwa - a swoje podpowiedzi
-     * (podklad pod ikone, duch punktu wstrzymania) gasi dopiero, gdy mysz z niej zjedzie.
-     * Bez tego jej podpowiedz zostawala zapalona pod naszym licznikiem.
+     * Oddaje rynience ruch myszy, ale zawsze na wysokosci kolumny numerow linii.
+     *
+     * Ta warstwa zjada zdarzenia nad licznikiem, wiec rynienka - a przez nia edytor -
+     * przestawala je dostawac i jej wlasny stan zamarzal na ostatnim wierszu, jaki
+     * widziala: duch punktu wstrzymania zostawal zapalony wiersz wyzej. Przekazanie ruchu
+     * odmraza ja, a przyciecie x do kolumny numerow sprawia, ze widzi ruch poza obszarem
+     * znacznikow - czyli nie zapala tego ducha na naszym wierszu.
      */
-    private fun releaseGutterHover() {
-        val gutter = parent ?: return
-        val now = System.currentTimeMillis()
-        // Dwa zdarzenia, bo rynienka i to, co na niej siedzi, sledzi mysz na dwa sposoby:
-        // jedni czekaja na wyjscie, drudzy licza wiersz z ostatniego ruchu. Ruch poza
-        // komponent zalatwia tych drugich.
+    private fun passToGutter(e: MouseEvent) {
+        val gutter = editor.gutterComponentEx
+        if (parent !== gutter) return
+        val x = minOf(e.x, (gutter.lineMarkerAreaOffset - 1).coerceAtLeast(0))
         gutter.dispatchEvent(
-            MouseEvent(gutter, MouseEvent.MOUSE_MOVED, now, 0, -1, -1, 0, false)
-        )
-        gutter.dispatchEvent(
-            MouseEvent(gutter, MouseEvent.MOUSE_EXITED, now, 0, -1, -1, 0, false)
+            MouseEvent(gutter, MouseEvent.MOUSE_MOVED, e.`when`, e.modifiersEx, x, e.y, 0, false)
         )
     }
 
