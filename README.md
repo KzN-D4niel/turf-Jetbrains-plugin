@@ -274,7 +274,7 @@ blok nie stał się nierozwijalny.
 
 Zwinięty blok **nie zajmuje własnego wiersza**: chowa się w końcu linii nad sobą, tak jak
 zwykłe zwinięcie ciała metody chowa się w jej nagłówku. Nie zostaje po nim pusta linia, a
-licznik dosiada numeru tej linii i czyta się `14/5` — liczba w barwie Turfa, bo stoi obok
+licznik dosiada numeru tej linii i czyta się `14 / 5` — liczba w barwie Turfa, bo stoi obok
 numeru i tylko kolor mówi, które jest które, a ukośnik w barwie numerów przygaszonej do
 połowy: jest tylko przecinkiem między dwiema liczbami, więc ma być bledszy od obu.
 
