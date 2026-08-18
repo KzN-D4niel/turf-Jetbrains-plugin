@@ -186,9 +186,13 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
                     g2.drawString(SEPARATOR, c.textX, baseline)
                 }
                 g2.color = AiColors.ACCENT
-                // Liczba stoi w tej samej kolumnie niezaleznie od ukosnika, zeby liczniki
-                // zwinietych i rozwinietych blokow tworzyly jeden pion.
-                g2.drawString(c.text, c.textX + fm.stringWidth(SEPARATOR), baseline)
+                // Przy zwinietym bloku liczba idzie za ukosnikiem, bo obok stoi numer
+                // linii. Przy rozwinietym numeru nie ma, wiec zajmuje jego miejsce -
+                // wyrownana do prawej krawedzi kolumny numerow, dokladnie jak one.
+                val x =
+                    if (c.slash) c.textX + fm.stringWidth(SEPARATOR)
+                    else c.textX - fm.stringWidth(c.text)
+                g2.drawString(c.text, x, baseline)
             }
         } finally {
             g2.dispose()

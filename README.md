@@ -282,8 +282,9 @@ Region tworzony jest z `neverExpands`, więc platforma nie rysuje przy nim swoje
 zwijania — rozwija się to licznikiem, a daszek byłby drugim przyciskiem do tego samego,
 stojącym tuż obok liczby.
 
-**Rozwinięty blok też ma licznik** — samo `5`, w tej samej kolumnie, na wysokości swojej
-etykiety `Claude's 5 Lines`. Kliknięcie zwija blok z powrotem. Bez niego rynienka w tym
+**Rozwinięty blok też ma licznik** — samo `5`, na wysokości swojej etykiety
+`Claude's 5 Lines`, **na miejscu numeru linii**: ten wiersz numeru nie ma, więc liczba
+wyrównuje się do prawej krawędzi kolumny numerów, dokładnie jak one. Kliknięcie zwija blok z powrotem. Bez niego rynienka w tym
 wierszu stała pusta, a zwijało się wyłącznie klikiem w etykietę.
 
 Pole łapiące obejmuje wtedy **dwa wiersze**: etykietę i wiersz kodu nad nią — ten sam, który
