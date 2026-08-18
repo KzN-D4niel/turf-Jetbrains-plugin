@@ -305,11 +305,11 @@ wstrzymania, a jego ikona wchodzi na miejsce numeru i rozbija licznik. **Ceną j
 tej jednej linii nie ustawisz punktu wstrzymania kliknięciem** — zostaje `Ctrl+F8`. Podkładki nie rysuje jednak warstwa
 (byłaby nad paskiem zmian gita i zakryłaby go), tylko **sama rynienka** — jako znacznik linii
 na warstwie `SYNTAX`. Rynienka rysuje znaczniki w kolejności warstw, a pasek gita siedzi na
-5999, więc idzie po nas: podkładka jest pełnej szerokości i mimo to git zostaje widoczny. Warstwa oddaje przy tym rynience każdy ruch myszy, ale zawsze na wysokości kolumny numerów
-linii. Bez tego rynienka — a przez nią edytor — przestawała dostawać zdarzenia i jej własny
-stan zamarzał na ostatnim widzianym wierszu: duch punktu wstrzymania zostawał zapalony wiersz
-wyżej. Przycięcie `x` do kolumny numerów sprawia, że rynienka widzi ruch **poza** obszarem
-znaczników, więc tego ducha nie zapala też na naszym wierszu.
+5999, więc idzie po nas: podkładka jest pełnej szerokości i mimo to git zostaje widoczny. Warstwa oddaje przy tym rynience każdy ruch myszy, ale zawsze w pasie zwijania. Bez
+przekazywania rynienka — a przez nią edytor — przestawała dostawać zdarzenia i jej stan
+zamarzał na ostatnim widzianym wierszu: duch punktu wstrzymania zostawał zapalony. Pas
+zwijania, bo w nowym interfejsie punkt wstrzymania stawia się klikając **zarówno** w numery
+linii, jak i w ikony — ruch podany tam nie gasił ducha, tylko go zapalał.
 
 Zwijanie domyślne dotyczy **otwarcia pliku, nie pisania**. Kiedy dopisujesz `@Claude` nad
 metodą, blok zostaje rozwinięty — zwijanie tego, przy czym właśnie pracujesz, byłoby

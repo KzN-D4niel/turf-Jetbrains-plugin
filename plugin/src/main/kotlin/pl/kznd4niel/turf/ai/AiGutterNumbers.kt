@@ -110,7 +110,10 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
     private fun passToGutter(e: MouseEvent) {
         val gutter = editor.gutterComponentEx
         if (parent !== gutter) return
-        val x = minOf(e.x, (gutter.lineMarkerAreaOffset - 1).coerceAtLeast(0))
+        // Pas zwijania, bo w nowym interfejsie punkt wstrzymania stawia sie klikajac
+        // zarowno w numery linii, jak i w ikony - ruch podany tam nie gasil ducha, tylko
+        // go zapalal. Pas zwijania jest dla niego obojetny.
+        val x = (gutter.foldingAreaOffset + 1).coerceIn(0, (gutter.width - 1).coerceAtLeast(0))
         gutter.dispatchEvent(
             MouseEvent(gutter, MouseEvent.MOUSE_MOVED, e.`when`, e.modifiersEx, x, e.y, 0, false)
         )

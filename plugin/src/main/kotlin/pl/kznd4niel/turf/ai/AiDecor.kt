@@ -464,11 +464,12 @@ class AiDecor(private val editor: Editor) : Disposable {
 }
 
 /**
- * Prawa krawedz pola licznika: koniec rynienki tuz przy tekscie. Podkladka moze tam
- * siegac, bo rysuje ja rynienka przed paskiem gita, a nie warstwa nad nim.
+ * Prawa krawedz pola licznika: sam koniec rynienki, tam gdzie zaczyna sie tekst. Podkladka
+ * moze isc na cala szerokosc, bo rysuje ja rynienka przed paskiem zmian gita, a nie warstwa
+ * nad nim - git ida po niej i zostaje widoczny.
  */
 internal fun hoverRight(gutter: EditorGutterComponentEx, left: Int): Int =
-    gutter.whitespaceSeparatorOffset.takeIf { it > left } ?: gutter.width
+    gutter.width.takeIf { it > left } ?: (left + 1)
 
 /** Podkladka pod mysza, rysowana przez rynienke - stad pod paskiem zmian gita. */
 private class HoverBarRenderer(private val key: String, private val decor: AiDecor) :
