@@ -70,6 +70,9 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
 
     private var hovered: String? = null
 
+    /** Czy mysz stoi na wierszu kodu bloku (wtedy swieca sie oba wiersze), czy na etykiecie. */
+    private var hoveredOnHost = true
+
     /** Trzymany, zeby dalo sie go zdjac - inaczej zostalby na rynience po wtyczce. */
     private val onGutterResized = object : ComponentAdapter() {
         override fun componentResized(e: ComponentEvent) = syncBounds()
@@ -86,24 +89,35 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
             }
 
             override fun mouseMoved(e: MouseEvent) {
-                setHovered(cellAt(e.x, e.y))
+                hover(e)
                 passToGutter(e)
             }
 
             override fun mouseEntered(e: MouseEvent) {
-                setHovered(cellAt(e.x, e.y))
+                hover(e)
                 passToGutter(e)
             }
+
             override fun mouseExited(e: MouseEvent) = setHovered(null)
+
+            /**
+             * Z wiersza kodu widac caly blok, wiec swieca sie oba wiersze. Z wiersza
+             * etykiety - juz tylko ona: kod jest wtedy rozwiniety i sam sie broni.
+             */
+            private fun hover(e: MouseEvent) {
+                val c = cellAt(e.x, e.y)
+                setHovered(c, c?.chipRect?.contains(e.x, e.y) != true)
+            }
         }
         addMouseListener(mouse)
         addMouseMotionListener(mouse)
     }
 
-    private fun setHovered(c: Counter?) {
-        if (hovered == c?.key) return
+    private fun setHovered(c: Counter?, onHost: Boolean = true) {
+        if (hovered == c?.key && onHost == hoveredOnHost) return
         hovered = c?.key
-        decor.setHovered(c?.key)
+        hoveredOnHost = onHost
+        decor.setHovered(c?.key, onHost)
         toolTipText = c?.let {
             if (it.collapsed) "${it.text} linii zwinietego kodu AI. Kliknij, zeby rozwinac."
             else "${it.text} linii kodu AI. Kliknij, zeby zwinac."

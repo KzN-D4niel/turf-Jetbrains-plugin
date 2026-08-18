@@ -288,7 +288,8 @@ wierszu stała pusta, a zwijało się wyłącznie klikiem w etykietę.
 
 Pole łapiące obejmuje wtedy **dwa wiersze**: etykietę i wiersz kodu nad nią — ten sam, który
 po zwinięciu niesie `14 / 5`. Dzięki temu klikany prostokąt nie skacze przy przełączaniu
-stanu. Podkładka nad wierszem kodu idzie przez rynienkę (numer linii i pasek gita zostają
+stanu. Podświetla się jednak tylko tyle, ile trzeba: z wiersza kodu widać cały blok, więc
+świecą się oba wiersze, a z wiersza etykiety — już tylko ona. Podkładka nad wierszem kodu idzie przez rynienkę (numer linii i pasek gita zostają
 widoczne), nad etykietą przez warstwę — obie kanciaste i pełnej wysokości, żeby stykały się
 w jedną płaszczyznę, a nie dwa kształty różnej wysokości.
 

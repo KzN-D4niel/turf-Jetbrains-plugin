@@ -126,6 +126,9 @@ class AiDecor(private val editor: Editor) : Disposable {
     /** Blok, nad ktorego licznikiem stoi mysz. Trzymany tu, bo czyta go tez rynienka. */
     private var hoveredKey: String? = null
 
+    /** Czy mysz stoi na wierszu kodu tego bloku, czy na wierszu etykiety. */
+    private var hoveredOnHost = false
+
     init {
         editor.document.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) = schedule(DEBOUNCE_MS)
@@ -234,11 +237,16 @@ class AiDecor(private val editor: Editor) : Disposable {
 
     internal fun toggleFromGutter(key: String) = toggle(key)
 
-    /** Czyta to podkladka w rynience przy kazdym rysowaniu. */
-    internal fun isHovered(key: String): Boolean = hoveredKey == key
+    /**
+     * Czyta to podkladka w rynience przy kazdym rysowaniu. Wiersz kodu zapala sie tylko
+     * wtedy, gdy mysz stoi wlasnie na nim: z wiersza kodu widac caly blok, wiec swieca sie
+     * oba wiersze, ale z wiersza etykiety - juz tylko ona.
+     */
+    internal fun isHovered(key: String): Boolean = hoveredKey == key && hoveredOnHost
 
-    internal fun setHovered(key: String?) {
+    internal fun setHovered(key: String?, onHost: Boolean) {
         hoveredKey = key
+        hoveredOnHost = onHost
     }
 
     // ------------------------------------------------------------------ klikanie
