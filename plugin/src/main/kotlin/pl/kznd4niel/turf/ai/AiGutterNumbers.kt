@@ -5,6 +5,7 @@ import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.colors.EditorFontType
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.options.advanced.AdvancedSettings
+import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
 import java.awt.Cursor
 import java.awt.Font
@@ -130,8 +131,12 @@ internal class AiGutterNumbers(private val editor: EditorEx, private val decor: 
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             g2.font = lineNumberFont(editor)
             val fm = g2.fontMetrics
-            val gray = editor.colorsScheme.getColor(EditorColors.LINE_NUMBERS_COLOR)
-                ?: JBColor.GRAY
+            // Ukosnik jest tylko przecinkiem miedzy dwiema liczbami, wiec ma byc bledszy
+            // od obu - inaczej ciagnie oko na siebie zamiast je przepuscic dalej.
+            val gray = ColorUtil.withAlpha(
+                editor.colorsScheme.getColor(EditorColors.LINE_NUMBERS_COLOR) ?: JBColor.GRAY,
+                0.5,
+            )
             for (c in counters) {
                 val baseline = c.rect.y + editor.ascent
                 // Ukosnik w barwie numerow, liczba w barwie Turfa: numer linii i licznik
