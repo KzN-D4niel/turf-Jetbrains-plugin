@@ -299,7 +299,8 @@ Warstwa leży na całej rynience, ale przepuszcza mysz wszędzie poza polem licz
 (`contains` zwraca prawdę tylko nad nim). Dzięki temu reszta rynienki działa jak zawsze, a
 najechanie i kliknięcie łapie się dokładnie na tym prostokącie, który się podświetla.
 
-Pole obejmuje **cały pas rynienki tego wiersza**, z numerem linii włącznie, aż do tekstu. Nie
+Pole obejmuje **cały pas rynienki tego wiersza** — od jej lewej krawędzi po tekst, z numerem
+linii włącznie. Nie
 chodzi o klikalność samej cyfry, tylko o to, że kliknięcie w rynience stawia punkt
 wstrzymania, a jego ikona wchodzi na miejsce numeru i rozbija licznik. **Ceną jest to, że na
 tej jednej linii nie ustawisz punktu wstrzymania kliknięciem** — zostaje `Ctrl+F8`. Podkładki nie rysuje jednak warstwa

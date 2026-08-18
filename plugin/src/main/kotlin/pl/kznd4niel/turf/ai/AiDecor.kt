@@ -179,11 +179,10 @@ class AiDecor(private val editor: Editor) : Disposable {
         val right = hoverRight(gutter, textX)
         val height = editor.lineHeight
 
-        // Pole obejmuje takze numer linii. Nie chodzi o klikalnosc samej cyfry, tylko o to,
-        // ze klikniecie w rynience tego wiersza stawia punkt wstrzymania - a jego ikona
-        // wchodzi na miejsce numeru i rozbija licznik. Wiersz nalezy do zwinietego bloku,
-        // wiec caly jego pas rynienki jest nasz.
-        val left = gutter.lineNumberAreaOffset
+        // Pole obejmuje caly pas rynienki, od jej lewej krawedzi po tekst - wiersz nalezy
+        // w calosci do zwinietego bloku. Zaczynanie go dopiero przy numerze zostawialo z
+        // lewej pasek nieobjety niczym, przez co podswietlenie wygladalo na uciete.
+        val left = 0
 
         return hostLines().mapNotNull { (line, key) ->
             if (line >= doc.lineCount) return@mapNotNull null
@@ -480,7 +479,7 @@ private class HoverBarRenderer(private val key: String, private val decor: AiDec
     override fun paint(editor: Editor, g: Graphics, r: Rectangle) {
         if (!decor.isHovered(key)) return
         val gutter = (editor as? EditorEx)?.gutterComponentEx ?: return
-        val x = gutter.lineNumberAreaOffset
+        val x = 0
         val right = hoverRight(gutter, x)
         val h = if (r.height > 0) r.height else editor.lineHeight
 
