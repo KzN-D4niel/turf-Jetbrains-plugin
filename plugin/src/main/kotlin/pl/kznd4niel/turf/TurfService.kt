@@ -268,6 +268,86 @@ class TurfService(private val project: Project) : Disposable {
         reload()
     }
 
+    /**
+     * Zmiana nazwy albo przeniesienie: wpis idzie za plikiem.
+     *
+     * Bez tego przeniesienie pakietu w IntelliJ kasowalo cala wlasnosc w srodku - klucze
+     * w manifescie zostawaly na starych sciezkach, a wiec nie pasowaly juz do niczego i
+     * kazdy plik po przeprowadzce byl "niczyj".
+     *
+     * Przepisywane sa obie warstwy (`files` i `dirs`), niezaleznie od aktywnego trybu:
+     * nieaktywna warstwa ma przezyc przeprowadzke tak samo jak aktywna, inaczej powrot do
+     * drugiego trybu zastawalby oznaczenia rozjechane ze stanem dysku. Katalog dopasowuje
+     * sie prefiksem, wiec jeden ruch pakietu zabiera ze soba wszystko, co w nim siedzi.
+     *
+     * @param moves pary (stara sciezka wzgledna, nowa sciezka wzgledna).
+     */
+    fun relocate(moves: Collection<Pair<String, String>>) {
+        val m = manifest
+        var changed = false
+        for ((from, to) in moves) {
+            if (from.equals(to, ignoreCase = true)) continue
+            if (remapKeys(m.files, from, to)) changed = true
+            if (remapKeys(m.dirs, from, to)) changed = true
+            if (remapRequests(from, to)) changed = true
+        }
+        if (!changed) return
+        writeManifest(m)
+        reload()
+    }
+
+    /** @return czy cokolwiek pasowalo. Dopasowanie obejmuje sam klucz i wszystko pod nim. */
+    private fun remapKeys(map: MutableMap<String, FileEntry>, from: String, to: String): Boolean {
+        val lower = from.lowercase()
+        val moved = map.keys.filter { k ->
+            val kl = k.lowercase()
+            kl == lower || kl.startsWith("$lower/")
+        }
+        if (moved.isEmpty()) return false
+
+        val movedSet = moved.toHashSet()
+        // Przepisujemy do nowej mapy zamiast w miejscu, zeby zachowac kolejnosc wpisow -
+        // manifest jest czytany takze ludzkim okiem i skakanie linii przy kazdym ruchu
+        // pliku robiloby w diffie halas.
+        val rebuilt = LinkedHashMap<String, FileEntry>()
+        for ((k, v) in map) {
+            if (k !in movedSet) {
+                rebuilt[k] = v
+                continue
+            }
+            // Dlugosc prefiksu jest ta sama mimo wielkosci liter, wiec ogon docina sie wprost.
+            val key = to + k.substring(from.length)
+            // Cel moze byc zajety, jesli przeprowadzka nadpisala istniejacy plik -
+            // wtedy wygrywa to, co wlasnie przyjechalo.
+            rebuilt.keys.firstOrNull { it.equals(key, ignoreCase = true) }?.let(rebuilt::remove)
+            rebuilt[key] = v
+        }
+        map.clear()
+        map.putAll(rebuilt)
+        return true
+    }
+
+    /**
+     * Wniosek trzyma sciezke pliku, ktorego dotyczy. Po przeprowadzce musi wskazywac nowa,
+     * inaczej "Przyjmij" konczy sie komunikatem, ze pliku nie ma.
+     */
+    private fun remapRequests(from: String, to: String): Boolean {
+        val d = requestsDir() ?: return false
+        if (!Files.isDirectory(d)) return false
+        val lower = from.lowercase()
+        var changed = false
+        for (req in pendingRequests) {
+            if (req.status != "pending") continue
+            val pl = req.path.lowercase()
+            if (pl != lower && !pl.startsWith("$lower/")) continue
+            req.path = to + req.path.substring(from.length)
+            runCatching { Files.writeString(d.resolve(req.id + ".json"), gson.toJson(req) + "\n") }
+                .onFailure { thisLogger().warn("Nie moge przepisac sciezki wniosku", it) }
+            changed = true
+        }
+        return changed
+    }
+
     private fun putEntry(
         map: MutableMap<String, FileEntry>,
         key: String,

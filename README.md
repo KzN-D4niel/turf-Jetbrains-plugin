@@ -86,10 +86,39 @@ Automatyczne nadania własności są dwa, oba w trybie plikowym:
 - **Plik utworzony w IntelliJ jest od razu Twój.** Nowa klasa lądowała wcześniej jako
   „niczyj", czyli wyglądała jak plik czekający na decyzję — mimo że decyzja właśnie
   zapadła przez samo jej utworzenie. Rezerwacji AI to nie odbiera: jeśli wpis na tę
-  ścieżkę już istnieje, zostaje bez zmian.
+  ścieżkę już istnieje, zostaje bez zmian. **Wklejona kopia** liczy się tak samo jak nowy
+  plik: oryginał zatrzymuje swój wpis, a kopia bez tego byłaby „niczyja".
 
 W trybie pakietowym żadne z tych dwóch nie działa i nie musi — nowy plik dziedziczy
 właściciela pakietu, w którym powstał.
+
+### Zmiana nazwy i przeniesienie
+
+**Własność jedzie za plikiem.** Zmiana nazwy, przeciągnięcie klasy do innego katalogu,
+`Refactor → Move`, przeniesienie albo przemianowanie całego pakietu — wtyczka przepisuje
+klucze w manifeście na nowe ścieżki, zamiast zostawiać je na starych.
+
+Wcześniej przeniesienie pakietu kasowało w nim całą własność: pliki lądowały pod nowymi
+ścieżkami, wpisy zostawały pod starymi i nie pasowały już do niczego, więc po jednym
+refaktorze cały pakiet robił się „niczyj" — czyli domyślnie zablokowany dla AI.
+
+Kilka szczegółów, bo z nich wynika, co się dzieje w rogach:
+
+- **Katalog dopasowuje się prefiksem.** Jedno zdarzenie o przeniesieniu pakietu zabiera ze
+  sobą wszystkie wpisy pod nim — IDE nie wysyła osobnych zdarzeń na dzieci i nie musi.
+- **Przepisywane są obie warstwy manifestu**, `files` i `dirs`, niezależnie od aktywnego
+  trybu. Nieaktywna warstwa ma przeżyć przeprowadzkę tak samo jak aktywna, inaczej powrót
+  do drugiego trybu zastawałby oznaczenia rozjechane ze stanem dysku.
+- **Wnioski też idą za plikiem** — wniosek pamięta ścieżkę, więc bez tego „Przyjmij"
+  kończyłoby się komunikatem, że pliku nie ma.
+- **Cel zajęty przegrywa.** Jeśli przeprowadzka nadpisała istniejący plik, zostaje wpis
+  tego, co właśnie przyjechało.
+- Przeprowadzka **do** albo **z** ścieżki pomijanej (`build`, `.idea`, `node_modules` i
+  reszta listy) nie rusza manifestu.
+
+Poza IDE to dalej nie działa: `git mv` czy przeniesienie plików przez AI to dla VFS
+usunięcie plus utworzenie, a nie przeprowadzka. Plik traci wtedy wpis i staje się niczyj,
+czyli domyślnie zablokowany — błąd idzie w bezpieczną stronę.
 
 ### Wyjątek od pakietu
 
@@ -396,7 +425,9 @@ Implementacja globa jest ta sama po obu stronach (`**`, `*`, `?`).
   `target`, `node_modules`.
 - Zmiana trybu nie konwertuje oznaczeń. Świeże przełączenie na pakiety zastaje pusty
   `dirs`, czyli całe repo jako „niczyj", dopóki nie oznaczysz pakietów.
-- Manifest nie wie o `git mv` — plik przeniesiony poza IDE traci wpis i staje się niczyj
-  (czyli domyślnie zablokowany, więc błąd jest w bezpieczną stronę).
+- Przeniesienia i zmiany nazw wtyczka śledzi **tylko wewnątrz IDE**, po zdarzeniach VFS.
+  `git mv` i przeniesienie plików spoza IDE to dla VFS usunięcie plus utworzenie, więc
+  plik traci wpis i staje się niczyj (czyli domyślnie zablokowany — błąd w bezpieczną
+  stronę).
 - `plugin/build.gradle.kts` używa IntelliJ Platform Gradle Plugin 2.6.0; jest już 2.18.1,
   ale 2.6.0 jest sprawdzone na tej konfiguracji.
