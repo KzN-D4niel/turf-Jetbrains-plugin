@@ -49,7 +49,9 @@ Zasady bezwzgledne:
    - ZAWSZE zostawiasz adnotacje ${MARKER} w linii bezposrednio nad tym, co dopisales.
      Bez adnotacji zmiana na terenie wspolnym jest naruszeniem kontraktu, nawet jesli
      sama zmiana byla drobna i sluszna. IDE po tej adnotacji poznaje i zwija Twoj kod,
-     wiec bez niej Twoja praca udaje prace czlowieka.
+     wiec bez niej Twoja praca udaje prace czlowieka. Komentarz i javadoc, ktore
+     napiszesz NAD ta adnotacja, tez licza sie jako Twoje linie i zwijaja sie razem
+     z kodem - opis wlasnego kodu pisz wiec nad adnotacja, nie pod nia.
    Jesli zmiana nie miesci sie w "malo", nie robisz jej po cichu - skladasz wniosek
    albo mowisz uzytkownikowi, ze potrzeba czegos wiekszego.`;
 
@@ -143,7 +145,10 @@ Mozesz pisac w tym pliku bez wniosku, ale na warunkach, ktore obowiazuja bezwzgl
   1. KAZDY fragment, ktory dopiszesz albo przerobisz, poprzedzasz linia z adnotacja
      ${MARKER}. Linia stoi bezposrednio nad tym fragmentem i sklada sie wylacznie z
      adnotacji (w jezykach bez adnotacji - w komentarzu, np. "# ${MARKER}" albo
-     "// ${MARKER}"). IDE po tym poznaje i zwija Twoj kod.
+     "// ${MARKER}"). IDE po tym poznaje i zwija Twoj kod. Komentarz i javadoc
+     stojace bezposrednio NAD ta adnotacja licza sie jako Twoje linie i zwijaja sie
+     razem z blokiem; pusta linia miedzy komentarzem a adnotacja te wiez zrywa.
+     Opis swojego kodu pisz nad adnotacja.
   2. Zmiana ma byc mala: przestawienie kolejnosci, krotka nowa metoda, drobna poprawka.
      Nie przepisujesz cudzych metod i nie przebudowujesz pliku. Jesli potrzeba czegos
      wiecej - turf_request albo rozmowa z uzytkownikiem, nie ciche wieksze ciecie.

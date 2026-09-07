@@ -125,6 +125,80 @@ class AiScannerTest {
     }
 
     @Test
+    fun `javadoc nad znacznikiem wchodzi do bloku`() {
+        val src = """
+            class A {
+                /**
+                 * Sumuje dwie liczby.
+                 */
+                @Claude
+                int suma(int a, int b) {
+                    return a + b;
+                }
+            }
+        """.trimIndent()
+
+        val b = AiScanner.scan(src).single()
+        assertEquals(1, b.startLine)
+        assertEquals(4, b.markerLine)
+        assertEquals(7, b.endLine)
+        assertEquals(7, b.lineCount)
+    }
+
+    @Test
+    fun `komentarz liniowy nad znacznikiem tez wchodzi`() {
+        val src = """
+            # opis funkcji
+            # druga linia opisu
+            # @GPT
+            def f():
+                return 1
+        """.trimIndent()
+
+        val b = AiScanner.scan(src).single()
+        assertEquals(0, b.startLine)
+        assertEquals(2, b.markerLine)
+        assertEquals(4, b.endLine)
+    }
+
+    @Test
+    fun `pusta linia odcina komentarz od znacznika`() {
+        val src = """
+            // opis czegos wyzej
+
+            // @Claude
+            function a() {
+                return 1;
+            }
+        """.trimIndent()
+
+        val b = AiScanner.scan(src).single()
+        assertEquals(2, b.startLine)
+        assertEquals(2, b.markerLine)
+    }
+
+    @Test
+    fun `blok nie wciaga konca poprzedniego bloku AI`() {
+        val src = """
+            // @Claude
+            function a() {
+                return 1;
+            }
+            // opis
+            // @GPT
+            function b() {
+                return 2;
+            }
+        """.trimIndent()
+
+        val bs = AiScanner.scan(src)
+        assertEquals(2, bs.size)
+        assertEquals(0 to 3, bs[0].startLine to bs[0].endLine)
+        assertEquals(4 to 8, bs[1].startLine to bs[1].endLine)
+        assertEquals(5, bs[1].markerLine)
+    }
+
+    @Test
     fun `znacznik z argumentami tez sie liczy`() {
         assertEquals("Claude", AiMarkers.markerOf("    @Claude(\"refactor\")"))
         assertEquals("GeneratedByAI", AiMarkers.markerOf("# @GeneratedByAI"))

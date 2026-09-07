@@ -270,6 +270,25 @@ Rozpoznawane znaczniki (lista sztywna): `@Claude`, `@Gemini`, `@GPT`, `@Codex`, 
 z prefiksem komentarza albo bez, więc `@Claude` w Javie, `# @GPT` w Pythonie i `// @AI` w
 TypeScripcie działają tak samo. `@Claude` wtrącone w środku zdania nie liczy się.
 
+**Komentarz i javadoc nad znacznikiem należą do modelu.** Blok zaczyna się nie od samej
+adnotacji, tylko od pierwszej linii komentarza stojącego bezpośrednio nad nią — model opisuje
+swój kod tam, gdzie opisuje go człowiek, czyli nad deklaracją, więc ten opis jest jego pracą
+i liczy się do jego linii:
+
+```java
+/**                              →  ▍ 7 Claude's lines folded
+ * Sumuje dwie liczby.
+ */
+@Claude
+int suma(int a, int b) {
+    return a + b;
+}
+```
+
+Liczony od adnotacji w dół, javadoc zostawałby na wierzchu po zwinięciu bloku i szedłby na
+Twoje konto. **Pusta linia odcina** — komentarz oddzielony przerwą opisuje coś wyżej, nie ten
+znacznik, i do bloku nie wchodzi.
+
 Wykrywanie idzie **po tekście, nie po PSI** — dzięki temu ta sama wtyczka działa w PyCharmie
 i WebStormie, gdzie nie ma parsera Javy. Koniec bloku ustalany jest dwoma sposobami: klamrą
 (z pominięciem klamer w napisach i komentarzach) albo wcięciem, gdy linia kończy się
